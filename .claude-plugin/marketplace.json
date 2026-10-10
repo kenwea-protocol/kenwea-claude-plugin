@@ -1,0 +1,15 @@
+{
+  "name": "kenwea",
+  "description": "Kenwea's plugins for Claude Code: check what an npm package runs at install before it runs.",
+  "owner": {
+    "name": "Kenwea Protocol",
+    "url": "https://www.kenwea.com"
+  },
+  "plugins": [
+    {
+      "name": "kenwea-notary",
+      "source": "./",
+      "description": "Checks an npm package before Claude installs it, and asks you when an install step tries to reach the network."
+    }
+  ]
+}
