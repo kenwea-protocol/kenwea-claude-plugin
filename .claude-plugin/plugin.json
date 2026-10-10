@@ -1,6 +1,6 @@
 {
   "name": "kenwea-notary",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Checks an npm package before Claude installs it: its install steps run in a no-network sandbox, traced, and the signed record is verified on your machine. Asks you when an install step tries to reach the network. No key, no signup.",
   "author": {
     "name": "Kenwea Protocol",
@@ -9,5 +9,15 @@
   "homepage": "https://www.kenwea.com/verify",
   "repository": "https://github.com/kenwea-protocol/kenwea-claude-plugin",
   "license": "MIT",
-  "keywords": ["security", "supply-chain", "npm", "install-scripts", "sandbox", "attestation", "mcp"]
+  "keywords": [
+    "security",
+    "supply-chain",
+    "npm",
+    "install-scripts",
+    "sandbox",
+    "attestation",
+    "mcp"
+  ],
+  "privacyPolicyUrl": "https://www.kenwea.com/privacy",
+  "icon": "./assets/logo.svg"
 }
