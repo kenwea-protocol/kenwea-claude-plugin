@@ -15,7 +15,7 @@ That line is from a real Claude Code session on 10 October 2026.
 /plugin install kenwea-notary@kenwea
 ```
 
-No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.3.0`).
+No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.3.1`).
 
 ## What it does before an install
 

@@ -77,3 +77,17 @@ test("a failed or stopped step is reported with its reason, not as a pass", () =
   assert.equal(d.decision, "allow");
   assert.match(d.note, /15-second limit, so it was not watched to the end/);
 });
+
+test("decide: no steps without no_install_steps is not silence", () => {
+  const rec = (facts) => ({ spec: "x@1.0.0", code: 0, result: { installSteps: [], signedAttestation: { payload: JSON.stringify(facts) } } });
+  assert.equal(decide([rec({ installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" })]).decision, "silent");
+  const forged = decide([rec({ installSteps: [], reasonCode: "extract_failed", verdict: "manual_review" })]);
+  assert.equal(forged.decision, "allow");
+  assert.match(forged.note, /not checked/);
+  assert.equal(decide([rec({ installSteps: [], reasonCode: "report_unreliable", verdict: "manual_review" })], { strict: true }).decision, "ask");
+});
+
+test("decide: reads the signed facts, not the unsigned copy", () => {
+  const r = { installSteps: [], signedAttestation: { payload: JSON.stringify({ installSteps: ["postinstall"], reasonCode: "ran_tried_network", verdict: "manual_review", observed: { dns: ["evil.example"], network: [] } }) } };
+  assert.equal(decide([{ spec: "x@1.0.0", code: 0, result: r }]).decision, "ask");
+});

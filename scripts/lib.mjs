@@ -128,6 +128,10 @@ const OUTCOME = {
   trace_unavailable: "it ran, but what it attempted could not be observed",
   runner_busy: "the notary was busy and did not run it",
   not_run: "the notary did not run it",
+  extract_failed: "the notary could not open the archive",
+  no_manifest: "the archive had no package.json",
+  report_unreliable: "the run's report could not be trusted",
+  too_large: "the package is larger than the notary checks",
 };
 
 /**
@@ -136,6 +140,17 @@ const OUTCOME = {
  * @param {{strict?: boolean}} [opts]
  * @returns {{decision: "allow"|"ask"|"silent", reason: string, note: string}}
  */
+/** The record's signed payload as an object, or null. */
+export function signedFacts(result) {
+  const p = result && result.signedAttestation && result.signedAttestation.payload;
+  if (typeof p !== "string") return null;
+  try {
+    return JSON.parse(p);
+  } catch {
+    return null;
+  }
+}
+
 export function decide(checks, opts = {}) {
   const asks = [];
   const notes = [];
@@ -154,17 +169,25 @@ export function decide(checks, opts = {}) {
       (opts.strict ? asks : notes).push(`${c.spec}: not checked (${r.reason || "the notary could not fetch it"})`);
       continue;
     }
-    const steps = Array.isArray(r.installSteps) ? r.installSteps : [];
-    const o = r.observed && typeof r.observed === "object" ? r.observed : null;
+    // The signed facts, which @kenwea/mcp has already verified (exit 0 or 1),
+    // rather than the unsigned copy beside them.
+    const f = signedFacts(r) || r;
+    const steps = Array.isArray(f.installSteps) ? f.installSteps : [];
+    const o = f.observed && typeof f.observed === "object" ? f.observed : null;
     const reached = o ? [...(o.dns || []), ...(o.network || [])] : [];
     if (reached.length) {
       asks.push(`${c.spec}: its install step tried to reach the network (${reached.join(", ")})`);
-    } else if (!steps.length) {
+    } else if (!steps.length && f.reasonCode === "no_install_steps") {
       // Runs nothing at install: nothing to say.
-    } else if (r.verdict === "approved") {
+    } else if (!steps.length) {
+      // No steps for any other reason means the check did not find out what runs
+      // (extract_failed, no_manifest, report_unreliable, our limits), not that
+      // nothing does (2026-10-15).
+      (opts.strict ? asks : notes).push(`${c.spec}: not checked (${OUTCOME[f.reasonCode] || f.reasonCode || "the check did not find out what runs at install"})`);
+    } else if (f.verdict === "approved") {
       notes.push(`${c.spec}: runs ${steps.join(", ")} at install; it finished and reached for nothing`);
     } else {
-      notes.push(`${c.spec}: runs ${steps.join(", ")} at install; ${OUTCOME[r.reasonCode] || r.reasonCode || r.verdict}`);
+      notes.push(`${c.spec}: runs ${steps.join(", ")} at install; ${OUTCOME[f.reasonCode] || f.reasonCode || f.verdict}`);
     }
   }
   const suffix = "Signed and verified by the Kenwea notary: https://www.kenwea.com/verify";
