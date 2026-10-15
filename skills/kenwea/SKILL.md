@@ -15,7 +15,7 @@ This plugin checks npm packages before you install them. When you are about to r
 What the hook does:
 
 - If an install step tried to reach the network, or a record did not verify, the user is asked before the install runs. Explain what the note says and let the user decide. Do not retry the install another way to get around the question.
-- If the package runs something at install but reached for nothing, the install goes ahead with a one-line Kenwea note. Mention it to the user when it matters.
+- If the package runs something at install but touched nothing the notary watches (no network, no credential files), the install goes ahead with a one-line Kenwea note. Mention it to the user when it matters.
 - If nothing of the package's own runs at install, the hook says nothing.
 - If the notary could not be reached, the install goes ahead with a note that it was not checked. Say so plainly; it is not a pass.
 
@@ -23,11 +23,11 @@ What the hook does:
 
 The `kenwea-notary` MCP server comes with this plugin:
 
-- `kenwea.notary.check`: pass `package` (an npm name, optionally with a version or tag, such as `express@4.18.2`) or `artifactRef` (an https URL to a single .js, .mjs, .cjs or .py file, an npm tarball, or a Python wheel or zip).
-- `kenwea.notary.verify`: check a signed record you were given.
-- `kenwea.notary.getPublicKey`: the published keys, to verify a record in your own code.
+- `kenwea_notary_check`: pass `package` (an npm name, optionally with a version or tag, such as `express@4.18.2`) or `artifactRef` (an https URL to a single .js, .mjs, .cjs or .py file, an npm tarball, or a Python wheel or zip).
+- `kenwea_notary_verify`: check a signed record you were given.
+- `kenwea_notary_get_public_key`: the published keys, to verify a record in your own code.
 
-From a shell the same check is `npx -y @kenwea/mcp@0.3.1 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
+From a shell the same check is `npx -y @kenwea/mcp@0.4.0 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
 
 ## How to read a result
 

@@ -175,7 +175,20 @@ export function decide(checks, opts = {}) {
     const steps = Array.isArray(f.installSteps) ? f.installSteps : [];
     const o = f.observed && typeof f.observed === "object" ? f.observed : null;
     const reached = o ? [...(o.dns || []), ...(o.network || [])] : [];
-    if (reached.length) {
+    const sent = o && Array.isArray(o.credentialsSent) ? o.credentialsSent : [];
+    const read = o && Array.isArray(o.credentialsRead) ? o.credentialsRead : [];
+    // Registry metadata beside the record: a trusted package that starts running
+    // something at install is the most common shape of an attack.
+    const since = r.sincePrevious && typeof r.sincePrevious === "object" ? r.sincePrevious : null;
+    const added = since && Array.isArray(since.added) ? since.added : [];
+    if (added.length && steps.length) {
+      asks.push(`${c.spec}: new since ${since.previous}, ${added.join(", ")} runs at install`);
+    }
+    if (sent.length) {
+      asks.push(`${c.spec}: its install step tried to send a credential it found (${sent.join("; ")}; ours were decoys)`);
+    } else if (read.length) {
+      asks.push(`${c.spec}: its install step opened credential files (${read.join(", ")}; ours held decoys)`);
+    } else if (reached.length) {
       asks.push(`${c.spec}: its install step tried to reach the network (${reached.join(", ")})`);
     } else if (!steps.length && f.reasonCode === "no_install_steps") {
       // Runs nothing at install: nothing to say.
@@ -185,7 +198,7 @@ export function decide(checks, opts = {}) {
       // nothing does (2026-10-15).
       (opts.strict ? asks : notes).push(`${c.spec}: not checked (${OUTCOME[f.reasonCode] || f.reasonCode || "the check did not find out what runs at install"})`);
     } else if (f.verdict === "approved") {
-      notes.push(`${c.spec}: runs ${steps.join(", ")} at install; it finished and reached for nothing`);
+      notes.push(`${c.spec}: runs ${steps.join(", ")} at install; it finished and touched nothing we watch (no network, no credential files)`);
     } else {
       notes.push(`${c.spec}: runs ${steps.join(", ")} at install; ${OUTCOME[f.reasonCode] || f.reasonCode || f.verdict}`);
     }

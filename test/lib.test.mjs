@@ -51,7 +51,7 @@ test("silent when nothing runs at install", () => {
 test("a note when something runs at install and reaches nothing", () => {
   const d = decide([{ spec: "core-js", code: 0, result: rec({ installSteps: ["postinstall"], observed: { dns: [], network: [] } }) }]);
   assert.equal(d.decision, "allow");
-  assert.match(d.note, /core-js: runs postinstall at install; it finished and reached for nothing/);
+  assert.match(d.note, /core-js: runs postinstall at install; it finished and touched nothing we watch/);
 });
 
 test("asks when an install step tried the network, naming what", () => {
@@ -90,4 +90,17 @@ test("decide: no steps without no_install_steps is not silence", () => {
 test("decide: reads the signed facts, not the unsigned copy", () => {
   const r = { installSteps: [], signedAttestation: { payload: JSON.stringify({ installSteps: ["postinstall"], reasonCode: "ran_tried_network", verdict: "manual_review", observed: { dns: ["evil.example"], network: [] } }) } };
   assert.equal(decide([{ spec: "x@1.0.0", code: 0, result: r }]).decision, "ask");
+});
+
+test("decide: decoy credentials and a new install step ask first", () => {
+  const signed = (facts, extra = {}) => ({ spec: "x@2.0.0", code: 0, result: { ...extra, signedAttestation: { payload: JSON.stringify(facts) } } });
+  const ran = { installSteps: ["postinstall"], reasonCode: "ran_ok", verdict: "approved", observed: { dns: [], network: [] } };
+  const sent = decide([signed({ ...ran, verdict: "rejected", reasonCode: "sent_credentials", observed: { dns: [], network: [], credentialsSent: ["npm token in data it sent"] } })]);
+  assert.equal(sent.decision, "ask");
+  assert.match(sent.reason, /send a credential/);
+  assert.match(decide([signed({ ...ran, reasonCode: "read_credentials", verdict: "manual_review", observed: { dns: [], network: [], credentialsRead: ["~/.ssh (SSH private key)"] } })]).reason, /credential files/);
+  const fresh = decide([signed(ran, { sincePrevious: { previous: "1.9.0", added: ["postinstall"], removed: [], changed: [] } })]);
+  assert.equal(fresh.decision, "ask");
+  assert.match(fresh.reason, /new since 1\.9\.0, postinstall runs at install/);
+  assert.equal(decide([signed(ran)]).decision, "allow");
 });

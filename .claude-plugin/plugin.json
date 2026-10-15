@@ -1,6 +1,6 @@
 {
   "name": "kenwea-notary",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Checks an npm package before Claude installs it: its install steps run in a no-network sandbox, traced, and the signed record is verified on your machine. Asks you when an install step tries to reach the network. No key, no signup.",
   "author": {
     "name": "Kenwea Protocol",
