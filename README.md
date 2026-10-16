@@ -1,6 +1,6 @@
 # Kenwea notary for Claude Code
 
-Checks an npm package **before Claude installs it**. When Claude is about to run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, a hook asks the [Kenwea notary](https://www.kenwea.com/verify) first. The notary fetches the exact tarball npm would install, runs the install steps npm would run in a container with no network, no capabilities, a read-only filesystem and no root, with decoy credentials planted where a developer machine or CI runner keeps real ones, and traces what each step attempts: network, programs, credential files opened, and any attempt to send a decoy. The signed record is verified on your machine before anything is said about it.
+Checks an npm package **before Claude installs it**. When Claude is about to run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, a hook asks the [Kenwea notary](https://www.kenwea.com/verify) first. The notary fetches the exact tarball npm would install, runs the install steps npm would run in a container with no route out, no capabilities, a read-only filesystem and no root, with decoy credentials planted where a developer machine or CI runner keeps real ones, and traces what each step attempts: network, programs, credential files opened, and any attempt to send a decoy. There is no route out of the container, but a stand-in network inside it answers every lookup and accepts connections on ports 80, 443, 8080 and 8443, so the record says what a step sent: plain HTTP in full, HTTPS by server name and size (never decrypted), and any decoy a request carried. The signed record is verified on your machine before anything is said about it.
 
 ```
 > Kenwea: core-js@3.50.0: runs postinstall at install; it finished and touched nothing we watch (no network, no credential files).
@@ -23,7 +23,7 @@ No account, no key. Needs Node.js 18 or later on your machine (the check runs `n
 | --- | --- |
 | an install step tried to send a credential, or opened a credential file (the notary plants decoys) | you are asked before the install runs, with what it did |
 | a new version starts running something at install that the previous one did not | you are asked |
-| an install step tried to reach the network | you are asked before the install runs, with what it reached |
+| an install step tried to reach the network | you are asked before the install runs, with what it reached and what it sent |
 | the record did not verify (bad or revoked signature, not about these bytes) | you are asked |
 | the package runs something at install and touched nothing we watch | the install runs, with a one-line note |
 | a step failed or hit the check's time limit | the install runs, with a note saying so; that is not a pass |

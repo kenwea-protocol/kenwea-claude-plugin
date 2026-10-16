@@ -174,7 +174,8 @@ export function decide(checks, opts = {}) {
     const f = signedFacts(r) || r;
     const steps = Array.isArray(f.installSteps) ? f.installSteps : [];
     const o = f.observed && typeof f.observed === "object" ? f.observed : null;
-    const reached = o ? [...(o.dns || []), ...(o.network || [])] : [];
+    // requests: what a step sent to the stand-in network inside the sandbox (2026-10-16).
+    const reached = o ? [...(o.dns || []), ...(o.network || []), ...(o.requests || [])] : [];
     const sent = o && Array.isArray(o.credentialsSent) ? o.credentialsSent : [];
     const read = o && Array.isArray(o.credentialsRead) ? o.credentialsRead : [];
     // Registry metadata beside the record: a trusted package that starts running
