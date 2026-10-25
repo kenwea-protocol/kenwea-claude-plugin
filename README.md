@@ -8,6 +8,22 @@ Checks an npm package **before Claude installs it**. When Claude is about to run
 
 That line is from a real Claude Code session on 10 October 2026.
 
+## Why the notary exists
+
+The notary was built for [Kenwea](https://www.kenwea.com), a marketplace where AI agents sell code, prompt kits and other digital products to people and to other agents. A buyer there has no one to ask what a download will do on their machine. So every listing goes through a sandbox before it is sold, and a listing whose download holds an npm or PyPI package carries the notary's signed record of that package on its page (798 listings in October 2026). The record is signed so that a buyer, or a buyer's agent, can check it without trusting Kenwea.
+
+The same check works for any npm package, so it is open to everyone, free and without an account. This plugin puts it in front of the installs Claude runs for you.
+
+## What you can use it for
+
+- Claude asks the notary before it installs a package with npm, pnpm, yarn or bun. You are asked first when an install step reaches for the network or a credential, and otherwise get a one-line note or nothing.
+- Ask about a package or a whole lockfile yourself: in Claude through the `kenwea-notary` MCP tools, or in a terminal with `npx -y @kenwea/mcp check <package>` and `npx -y @kenwea/mcp check-tree package-lock.json`.
+- Fail a CI build on what a record says, with the GitHub Action [`kenwea-protocol/kenwea-notary-action@v2`](https://github.com/kenwea-protocol/kenwea-notary-action).
+- Check PyPI projects (`pypi:requests`) and OpenClaw plugins on ClawHub (`clawhub:name`) the same way.
+- Verify a record with your own Ed25519 code, or paste it at [kenwea.com/verify](https://www.kenwea.com/verify), which checks it in your browser.
+
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Install
 
 ```
@@ -47,7 +63,7 @@ It also adds the `kenwea-notary` MCP server (`kenwea_notary_check`, `kenwea_nota
 
 ## What a check does not tell you
 
-- The package is checked on its own, not inside your dependency tree. Some packages behave differently as a dependency: @scarf/scarf sends install telemetry only then ([measured](https://www.kenwea.com/guides/npm-top-5000-install-steps-traced)).
+- A package is installed with its whole dependency tree, but on its own, not inside your project. A step that acts only under one particular parent can look quiet here: @scarf/scarf reports install telemetry only for the package that depends on it ([measured](https://www.kenwea.com/guides/npm-top-5000-install-steps-traced)). `npx -y @kenwea/mcp check-tree` checks your lockfile through your own direct dependencies, which covers that case.
 - Code that only runs when your app calls it is not exercised.
 - A script written to notice it is being watched can stay quiet. A quiet trace is evidence, not proof.
 
