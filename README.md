@@ -31,14 +31,14 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 /plugin install kenwea-notary@kenwea
 ```
 
-No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.4.0`).
+No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.2`).
 
 ### Why Claude warns that this plugin "runs code"
 
 Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (91 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (213 lines). That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
 
 - it reads the command Claude is about to run, and does nothing unless it is an install that names packages;
-- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.4.0 check <name> --json`;
+- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.2 check <name> --json`;
 - the notary receives only package names, never the command, your files or your environment (npx itself fetches `@kenwea/mcp` from the npm registry the first time, into npm's usual cache);
 - the hook writes no file of its own and changes no setting; all it can do is add a note or ask you before the install runs.
 

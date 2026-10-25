@@ -27,7 +27,7 @@ The `kenwea-notary` MCP server comes with this plugin:
 - `kenwea_notary_verify`: check a signed record you were given.
 - `kenwea_notary_get_public_key`: the published keys, to verify a record in your own code.
 
-From a shell the same check is `npx -y @kenwea/mcp@0.4.0 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
+From a shell the same check is `npx -y @kenwea/mcp@0.7.2 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
 
 ## How to read a result
 

@@ -173,6 +173,11 @@ export function decide(checks, opts = {}) {
     // rather than the unsigned copy beside them.
     const f = signedFacts(r) || r;
     const steps = Array.isArray(f.installSteps) ? f.installSteps : [];
+    // Install steps that ran in the package's dependency tree (1.4.0). A package
+    // with no step of its own whose dependency runs one (eslint-config-next,
+    // unrs-resolver's postinstall) was checked, and was said "not checked".
+    const depSteps = f.dependencies && Array.isArray(f.dependencies.installSteps) ? f.dependencies.installSteps : [];
+    const who = !steps.length && depSteps.length ? `an install step in its dependencies (${depSteps.join(", ")})` : "its install step";
     const o = f.observed && typeof f.observed === "object" ? f.observed : null;
     // requests: what a step sent to the stand-in network inside the sandbox (2026-10-16).
     const reached = o ? [...(o.dns || []), ...(o.network || []), ...(o.requests || [])] : [];
@@ -186,11 +191,15 @@ export function decide(checks, opts = {}) {
       asks.push(`${c.spec}: new since ${since.previous}, ${added.join(", ")} runs at install`);
     }
     if (sent.length) {
-      asks.push(`${c.spec}: its install step tried to send a credential it found (${sent.join("; ")}; ours were decoys)`);
+      asks.push(`${c.spec}: ${who} tried to send a credential it found (${sent.join("; ")}; ours were decoys)`);
     } else if (read.length) {
-      asks.push(`${c.spec}: its install step opened credential files (${read.join(", ")}; ours held decoys)`);
+      asks.push(`${c.spec}: ${who} opened credential files (${read.join(", ")}; ours held decoys)`);
     } else if (reached.length) {
-      asks.push(`${c.spec}: its install step tried to reach the network (${reached.join(", ")})`);
+      asks.push(`${c.spec}: ${who} tried to reach the network (${reached.join(", ")})`);
+    } else if (!steps.length && depSteps.length && f.verdict === "approved") {
+      notes.push(`${c.spec}: nothing of its own runs at install; ${depSteps.join(", ")} in its dependencies ran, finished and touched nothing we watch (no network, no credential files)`);
+    } else if (!steps.length && depSteps.length) {
+      notes.push(`${c.spec}: nothing of its own runs at install; ${depSteps.join(", ")} in its dependencies ran; ${OUTCOME[f.reasonCode] || f.reasonCode || f.verdict}`);
     } else if (!steps.length && f.reasonCode === "no_install_steps") {
       // Runs nothing at install: nothing to say.
     } else if (!steps.length) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0 (2026-10-25)
+
+A package with no install step of its own, whose dependency runs one, was checked with its whole tree but reported as "not checked". It now says which step ran in its dependencies and what it did, for example `eslint-config-next@15.5.27: nothing of its own runs at install; unrs-resolver@1.12.2 postinstall in its dependencies ran, finished and touched nothing we watch`. When such a step reaches for the network or a credential you are still asked first, and the message names the dependency's step instead of saying the package's own step did it. The hook now runs `@kenwea/mcp` 0.7.2 instead of 0.4.0; its output for a check is the same.
+
 ## 1.3.0 (2026-10-16)
 
 The sandbox now has a stand-in network inside it. It answers every lookup and accepts connections on ports 80, 443, 8080 and 8443, so a record says what an install step sent, not only that it tried: plain HTTP in full, HTTPS by server name and size (never decrypted), and any decoy credential a request carried. The note Claude shows includes what was sent.

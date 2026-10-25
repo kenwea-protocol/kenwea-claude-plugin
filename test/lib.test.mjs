@@ -104,3 +104,20 @@ test("decide: decoy credentials and a new install step ask first", () => {
   assert.match(fresh.reason, /new since 1\.9\.0, postinstall runs at install/);
   assert.equal(decide([signed(ran)]).decision, "allow");
 });
+
+// 1.4.0: a package with no step of its own whose dependency runs one was
+// checked, with its whole tree, and must not be called "not checked". The facts
+// are those of the real records of eslint-config-next 15.5.27 and
+// swagger-ui-express 5.0.1 (October 2026).
+test("decide: a step in the dependency tree is reported as checked, and as the dependency's", () => {
+  const signed = (facts) => ({ spec: "x@1.0.0", code: 0, result: { signedAttestation: { payload: JSON.stringify(facts) } } });
+  const quiet = decide([signed({ installSteps: [], reasonCode: "ran_ok", verdict: "approved", observed: { dns: [], network: [] }, dependencies: { installSteps: ["unrs-resolver@1.12.2 postinstall"] } })]);
+  assert.equal(quiet.decision, "allow");
+  assert.doesNotMatch(quiet.note, /not checked/);
+  assert.match(quiet.note, /unrs-resolver@1\.12\.2 postinstall in its dependencies ran, finished and touched nothing we watch/);
+  const net = decide([signed({ installSteps: [], reasonCode: "ran_tried_network", verdict: "manual_review", observed: { dns: ["scarf.sh"], network: [] }, dependencies: { installSteps: ["@scarf/scarf@1.4.0 postinstall"] } })]);
+  assert.equal(net.decision, "ask");
+  assert.match(net.reason, /an install step in its dependencies \(@scarf\/scarf@1\.4\.0 postinstall\) tried to reach the network/);
+  // Nothing runs anywhere in the tree: still silent.
+  assert.equal(decide([signed({ installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" })]).decision, "silent");
+});
