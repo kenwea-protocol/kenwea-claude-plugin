@@ -17,7 +17,7 @@ What the hook does:
 - If an install step tried to reach the network, or a record did not verify, the user is asked before the install runs. Explain what the note says and let the user decide. Do not retry the install another way to get around the question.
 - If the package runs something at install but touched nothing the notary watches (no network, no credential files), the install goes ahead with a one-line Kenwea note. Mention it to the user when it matters.
 - If nothing of the package's own runs at install, the hook says nothing.
-- If the notary could not be reached, the install goes ahead with a note that it was not checked. Say so plainly; it is not a pass.
+- If the notary could not be reached, the install goes ahead with a note that there is no Kenwea record yet. If the check ran but could not see what runs at install, the note says the result is inconclusive. Say so plainly; neither is a pass.
 
 ## Checking something yourself
 

@@ -51,9 +51,9 @@ Claude shows that warning for every plugin with a command hook, and this one has
 | an install step tried to reach the network | you are asked before the install runs, with what it reached and what it sent |
 | the record did not verify (bad or revoked signature, not about these bytes) | you are asked |
 | the package runs something at install and touched nothing we watch | the install runs, with a one-line note |
-| a step failed or hit the check's time limit | the install runs, with a note saying so; that is not a pass |
+| a step failed or hit the check's time limit, or the check could not see what runs | the install runs, with a note that the result is inconclusive and why; that is not a pass |
 | nothing of the package's own runs at install | nothing is said |
-| the notary could not be reached, or the hourly limit was hit | the install runs, with a note that it was not checked |
+| the notary could not be reached, or the hourly limit was hit | the install runs, with a note that there is no Kenwea record yet and why |
 
 Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made.
 

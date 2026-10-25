@@ -68,8 +68,13 @@ test("an unanswered check never blocks, unless strict", () => {
   const c = [{ spec: "x", code: 3, result: null, error: "check refused: rate_limited" }];
   const d = decide(c);
   assert.equal(d.decision, "allow");
-  assert.match(d.note, /not checked \(check refused: rate_limited\)/);
-  assert.equal(decide(c, { strict: true }).decision, "ask");
+  assert.match(d.note, /no Kenwea record yet \(the notary's hourly limit was reached; the install went ahead\)/);
+  assert.doesNotMatch(d.note, /not checked/);
+  const strict = decide(c, { strict: true });
+  assert.equal(strict.decision, "ask");
+  assert.match(strict.reason, /^Kenwea could not check this install/);
+  assert.doesNotMatch(strict.reason, /Signed and verified/);
+  assert.match(decide([{ spec: "x", code: 3, result: null, error: "check failed: fetch failed" }]).note, /\(the notary could not be reached; the install went ahead\)/);
 });
 
 test("a failed or stopped step is reported with its reason, not as a pass", () => {
@@ -83,7 +88,8 @@ test("decide: no steps without no_install_steps is not silence", () => {
   assert.equal(decide([rec({ installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" })]).decision, "silent");
   const forged = decide([rec({ installSteps: [], reasonCode: "extract_failed", verdict: "manual_review" })]);
   assert.equal(forged.decision, "allow");
-  assert.match(forged.note, /not checked/);
+  assert.match(forged.note, /checked, but the result is inconclusive \(the notary could not open the archive\)/);
+  assert.match(decide([rec({ installSteps: [], reasonCode: "runner_busy", verdict: "manual_review" })]).note, /no Kenwea record yet \(the notary was busy and did not run it\)/);
   assert.equal(decide([rec({ installSteps: [], reasonCode: "report_unreliable", verdict: "manual_review" })], { strict: true }).decision, "ask");
 });
 
@@ -113,7 +119,7 @@ test("decide: a step in the dependency tree is reported as checked, and as the d
   const signed = (facts) => ({ spec: "x@1.0.0", code: 0, result: { signedAttestation: { payload: JSON.stringify(facts) } } });
   const quiet = decide([signed({ installSteps: [], reasonCode: "ran_ok", verdict: "approved", observed: { dns: [], network: [] }, dependencies: { installSteps: ["unrs-resolver@1.12.2 postinstall"] } })]);
   assert.equal(quiet.decision, "allow");
-  assert.doesNotMatch(quiet.note, /not checked/);
+  assert.doesNotMatch(quiet.note, /inconclusive|no Kenwea record/);
   assert.match(quiet.note, /unrs-resolver@1\.12\.2 postinstall in its dependencies ran, finished and touched nothing we watch/);
   const net = decide([signed({ installSteps: [], reasonCode: "ran_tried_network", verdict: "manual_review", observed: { dns: ["scarf.sh"], network: [] }, dependencies: { installSteps: ["@scarf/scarf@1.4.0 postinstall"] } })]);
   assert.equal(net.decision, "ask");

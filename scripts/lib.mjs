@@ -134,6 +134,14 @@ const OUTCOME = {
   too_large: "the package is larger than the notary checks",
 };
 
+// The CLI's error, said plainly when it is one we know.
+function plainError(e) {
+  if (!e) return "no answer from the notary";
+  if (/rate_limited|hourly/i.test(e)) return "the notary's hourly limit was reached";
+  if (/fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|timed? ?out/i.test(e)) return "the notary could not be reached";
+  return e;
+}
+
 /**
  * What the hook says, from the checked records.
  * @param {{spec: string, code: number, result: any, error?: string}[]} checks
@@ -161,12 +169,14 @@ export function decide(checks, opts = {}) {
       continue;
     }
     if (c.code !== 0 && c.code !== 1) {
-      const why = c.error || "no answer from the notary";
-      (opts.strict ? asks : notes).push(`${c.spec}: not checked (${why})`);
+      // 1.5.0: "not checked" read as an alarm or a fault in the package; say
+      // what happened instead, and that the install was not held up.
+      const why = plainError(c.error);
+      (opts.strict ? asks : notes).push(`${c.spec}: no Kenwea record yet (${why}${opts.strict ? "" : "; the install went ahead"})`);
       continue;
     }
     if (r.checked === false) {
-      (opts.strict ? asks : notes).push(`${c.spec}: not checked (${r.reason || "the notary could not fetch it"})`);
+      (opts.strict ? asks : notes).push(`${c.spec}: no Kenwea record yet (${r.reason || "the notary could not download it"})`);
       continue;
     }
     // The signed facts, which @kenwea/mcp has already verified (exit 0 or 1),
@@ -175,7 +185,7 @@ export function decide(checks, opts = {}) {
     const steps = Array.isArray(f.installSteps) ? f.installSteps : [];
     // Install steps that ran in the package's dependency tree (1.4.0). A package
     // with no step of its own whose dependency runs one (eslint-config-next,
-    // unrs-resolver's postinstall) was checked, and was said "not checked".
+    // unrs-resolver's postinstall) was checked, and was once said to be unchecked.
     const depSteps = f.dependencies && Array.isArray(f.dependencies.installSteps) ? f.dependencies.installSteps : [];
     const who = !steps.length && depSteps.length ? `an install step in its dependencies (${depSteps.join(", ")})` : "its install step";
     const o = f.observed && typeof f.observed === "object" ? f.observed : null;
@@ -206,7 +216,10 @@ export function decide(checks, opts = {}) {
       // No steps for any other reason means the check did not find out what runs
       // (extract_failed, no_manifest, report_unreliable, our limits), not that
       // nothing does (2026-10-15).
-      (opts.strict ? asks : notes).push(`${c.spec}: not checked (${OUTCOME[f.reasonCode] || f.reasonCode || "the check did not find out what runs at install"})`);
+      // A check that never ran has no result to call inconclusive.
+      const why = OUTCOME[f.reasonCode] || f.reasonCode || "the check did not find out what runs at install";
+      const ran = f.reasonCode !== "runner_busy" && f.reasonCode !== "not_run";
+      (opts.strict ? asks : notes).push(ran ? `${c.spec}: checked, but the result is inconclusive (${why})` : `${c.spec}: no Kenwea record yet (${why})`);
     } else if (f.verdict === "approved") {
       notes.push(`${c.spec}: runs ${steps.join(", ")} at install; it finished and touched nothing we watch (no network, no credential files)`);
     } else {
@@ -214,6 +227,10 @@ export function decide(checks, opts = {}) {
     }
   }
   const suffix = "Signed and verified by the Kenwea notary: https://www.kenwea.com/verify";
+  // Strict mode asks when there is no record; that is not a check, so say so.
+  if (asks.length && asks.every((a) => a.includes(": no Kenwea record yet ("))) {
+    return { decision: "ask", reason: `Kenwea could not check this install, and KENWEA_GUARD_STRICT is set. ${asks.join("; ")}.${notes.length ? ` Also: ${notes.join("; ")}.` : ""}`, note: "" };
+  }
   if (asks.length) {
     return { decision: "ask", reason: `Kenwea checked this install before it runs. ${asks.join("; ")}.${notes.length ? ` Also: ${notes.join("; ")}.` : ""} ${suffix}`, note: "" };
   }
