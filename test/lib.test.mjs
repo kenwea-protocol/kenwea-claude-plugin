@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decide, parseInstalls, registrySpec } from "../scripts/lib.mjs";
+import { decide, parseInstalls, registrySpec, changedBehavior } from "../scripts/lib.mjs";
 
 const specs = (cmd) => parseInstalls(cmd).flatMap((i) => i.specs);
 
@@ -126,4 +126,42 @@ test("decide: a step in the dependency tree is reported as checked, and as the d
   assert.match(net.reason, /an install step in its dependencies \(@scarf\/scarf@1\.4\.0 postinstall\) tried to reach the network/);
   // Nothing runs anywhere in the tree: still silent.
   assert.equal(decide([signed({ installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" })]).decision, "silent");
+});
+
+// 1.6.0: sincePrevious.behavior, from the notary's records of both versions.
+test("decide: a new install step in the tree asks; other differences are said beside the record", () => {
+  const signed = (since, level = "quiet") => ({ spec: "x@2.0.0", code: 0, result: { sincePrevious: since, signedAttestation: { payload: JSON.stringify({ installSteps: [], reasonCode: "ran_ok", verdict: "approved", level, observed: { dns: [], network: [] }, dependencies: { installSteps: ["dep@1.0.0 postinstall"] } }) } } });
+  const base = { known: true, worse: true, sameChecker: true, previous: "1.9.0", previousLevel: "quiet", level: "quiet" };
+
+  const step = decide([signed({ previous: "1.9.0", added: [], behavior: { ...base, newDependencySteps: ["evil-dep postinstall"] } })]);
+  assert.equal(step.decision, "ask");
+  assert.match(step.reason, /x@2\.0\.0: compared with 1\.9\.0, new install steps in its dependencies: evil-dep postinstall, which our record of 1\.9\.0 does not show/);
+
+  // The puppeteer shape (25.15.0 vs 25.16.0, 2026-10-29): a new host is said, not asked for by itself.
+  const host = decide([signed({ previous: "1.9.0", added: [], behavior: { ...base, newlyReached: ["storage.googleapis.com"] } })]);
+  assert.equal(host.decision, "allow");
+  assert.match(host.note, /compared with 1\.9\.0, it first reaches storage\.googleapis\.com, which our record of 1\.9\.0 does not show/);
+
+  // An older checker: never asked, and said so.
+  const older = decide([signed({ previous: "1.9.0", added: [], behavior: { ...base, sameChecker: false, newDependencySteps: ["evil-dep postinstall"] } })]);
+  assert.equal(older.decision, "allow");
+  assert.match(older.note, /older checker, so the difference may be ours/);
+
+  // Not worse (swagger-ui-express: varies between runs), unknown, or absent: nothing more is said.
+  const varies = { previous: "5.0.0", added: [], behavior: { known: true, worse: false, sameChecker: true, previous: "5.0.0", previousLevel: "quiet", level: "network", variesBetweenRuns: ["scarf.sh"] } };
+  const unknown = { previous: "5.0.0", added: [], behavior: { known: false, queued: true, worse: false, previous: "5.0.0" } };
+  for (const since of [varies, unknown, { previous: "5.0.0", added: [] }]) {
+    const r = decide([signed(since)]);
+    assert.notEqual(r.decision, "ask");
+    assert.doesNotMatch(r.note || "", /compared with/);
+  }
+});
+
+test("changedBehavior: credentials come first and the clause names the earlier record", () => {
+  assert.equal(
+    changedBehavior({ known: true, worse: true, previous: "1.0.0", newCredentialsSent: ["npm token in data it sent"], newlyReached: ["a.example"] }),
+    "it tries to send a credential it found (npm token in data it sent; ours were decoys); it first reaches a.example, which our record of 1.0.0 does not show"
+  );
+  assert.equal(changedBehavior({ known: true, worse: false, previous: "1.0.0", newlyReached: ["a.example"] }), "");
+  assert.equal(changedBehavior(null), "");
 });

@@ -48,6 +48,8 @@ Claude shows that warning for every plugin with a command hook, and this one has
 | --- | --- |
 | an install step tried to send a credential, or opened a credential file (the notary plants decoys) | you are asked before the install runs, with what it did |
 | a new version starts running something at install that the previous one did not | you are asked |
+| an install step appears in the dependency tree that the notary's record of the previous version does not show | you are asked |
+| the new version reaches a host or a credential file that the record of the previous version does not show | said beside the answer, as context, not as a reason to ask by itself |
 | an install step tried to reach the network | you are asked before the install runs, with what it reached and what it sent |
 | the record did not verify (bad or revoked signature, not about these bytes) | you are asked |
 | the package runs something at install and touched nothing we watch | the install runs, with a one-line note |

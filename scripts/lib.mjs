@@ -134,6 +134,22 @@ const OUTCOME = {
   too_large: "the package is larger than the notary checks",
 };
 
+// What a version does that the previous one did not, as one clause, or "" when
+// nothing worth asking about changed. Hosts that only vary between runs of the
+// same install code (variesBetweenRuns) are left out: the server already does
+// not count them as worse.
+export function changedBehavior(b) {
+  if (!b || typeof b !== "object" || b.known !== true || b.worse !== true) return "";
+  const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : []);
+  const parts = [];
+  if (list(b.newCredentialsSent).length) parts.push(`it tries to send a credential it found (${list(b.newCredentialsSent).join("; ")}; ours were decoys)`);
+  if (list(b.newCredentialsRead).length) parts.push(`it opens credential files (${list(b.newCredentialsRead).join(", ")}; ours held decoys)`);
+  if (list(b.newlyReached).length) parts.push(`it first reaches ${list(b.newlyReached).join(", ")}`);
+  if (list(b.newDependencySteps).length) parts.push(`new install steps in its dependencies: ${list(b.newDependencySteps).join(", ")}`);
+  if (!parts.length && b.previousLevel && b.level && b.previousLevel !== b.level) parts.push(`its level went from ${b.previousLevel} to ${b.level}`);
+  return parts.length ? `${parts.join("; ")}, which our record of ${b.previous} does not show` : "";
+}
+
 // The CLI's error, said plainly when it is one we know.
 function plainError(e) {
   if (!e) return "no answer from the notary";
@@ -197,6 +213,21 @@ export function decide(checks, opts = {}) {
     // something at install is the most common shape of an attack.
     const since = r.sincePrevious && typeof r.sincePrevious === "object" ? r.sincePrevious : null;
     const added = since && Array.isArray(since.added) ? since.added : [];
+    // 1.6.0: what the version did differently from the previous one in the
+    // sandbox, from the notary's records of both. A new host or credential is
+    // already asked about through this record's own level, so the comparison is
+    // said beside it, never as a second reason: the earlier record can differ
+    // for our reasons too (puppeteer 25.15.0's postinstall skipped its download
+    // in our sandbox, so 25.16.0 looked new). A new install step in the tree is
+    // asked about, as a new step of the package's own already is, when both
+    // records were made by the same checker.
+    const b = since && since.behavior;
+    const behaviorLine = changedBehavior(b);
+    if (behaviorLine) {
+      const newStep = b.sameChecker === true && Array.isArray(b.newDependencySteps) && b.newDependencySteps.length > 0;
+      const older = b.sameChecker === true ? "" : " (the earlier record was made by an older checker, so the difference may be ours)";
+      (newStep ? asks : notes).push(`${c.spec}: compared with ${b.previous}, ${behaviorLine}${older}`);
+    }
     if (added.length && steps.length) {
       asks.push(`${c.spec}: new since ${since.previous}, ${added.join(", ")} runs at install`);
     }

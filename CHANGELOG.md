@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0 (2026-10-29)
+
+The notary now compares a version with the previous one using its signed records of both versions, in addition to the install steps the registry lists. When an install step appears in the dependency tree that the record of the previous version does not show, you are asked first, for example `x@2.0.0: compared with 1.9.0, new install steps in its dependencies: some-dep postinstall, which our record of 1.9.0 does not show`. A new host or credential file is said beside the answer as context: the version is already asked about for it through its own record, and an earlier run can differ for the sandbox's reasons (puppeteer 25.15.0 skipped its download in our sandbox, so 25.16.0 looked new). A difference between two records made by different checker versions is never a reason to ask, and the note says so. Hosts that one run of the same install code reached and another did not are left out. Nothing else changes, and the hook still runs `@kenwea/mcp` 0.7.2.
+
 ## 1.5.0 (2026-10-26)
 
 The note "not checked" read like an alarm, or like something was wrong with the package, and for a check that did run it was not even true. The note now says what happened. When the notary could not be reached or its hourly limit was hit, it says `no Kenwea record yet (the notary could not be reached; the install went ahead)`. When the check ran but could not see what runs at install, it says `checked, but the result is inconclusive` with the reason. Errors are said in plain words instead of `check failed: fetch failed`. With `KENWEA_GUARD_STRICT=1` and no record, the question you are asked now starts "Kenwea could not check this install" instead of saying it was checked and signed. What gets asked and what goes ahead is unchanged.
