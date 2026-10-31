@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.6.1 (unreleased)
+## 1.6.1 (2026-10-31)
 
 What the hook does when Kenwea is down was measured on 31 October against stand-in servers, and fixed where it fell short. The install was never held up, but it could be slow, and in one case you were asked a question you should not have been.
 
