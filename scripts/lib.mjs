@@ -154,6 +154,8 @@ export function changedBehavior(b) {
 function plainError(e) {
   if (!e) return "no answer from the notary";
   if (/rate_limited|hourly/i.test(e)) return "the notary's hourly limit was reached";
+  // @kenwea/mcp 0.7.3: the record came, but the published keys could not be read.
+  if (/could not read the published keys/i.test(e)) return "Kenwea's published keys could not be read, so its record could not be checked";
   if (/fetch failed|ECONNREFUSED|ENOTFOUND|ETIMEDOUT|timed? ?out/i.test(e)) return "the notary could not be reached";
   return e;
 }

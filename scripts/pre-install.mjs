@@ -19,7 +19,7 @@
 import { spawn } from "node:child_process";
 import { parseInstalls, decide } from "./lib.mjs";
 
-const CLI = "@kenwea/mcp@0.7.2";
+const CLI = "@kenwea/mcp@0.7.3";
 const MAX_PACKAGES = 5;
 const CHECK_TIMEOUT_MS = 140_000;
 
@@ -32,6 +32,18 @@ function readStdin() {
   });
 }
 
+// On Windows child.kill() ends the cmd.exe that shell: true started, and the npx and
+// node under it keep the pipes open, so the check ran on past the limit (measured
+// 2026-10-31: 155 s against a server that never answered). taskkill /T ends the tree.
+// Elsewhere the kill is unchanged.
+function killTree(child) {
+  if (process.platform === "win32" && child.pid) {
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore", windowsHide: true }).on("error", () => child.kill());
+  } else {
+    child.kill();
+  }
+}
+
 function check(spec) {
   return new Promise((resolve) => {
     // The spec has passed registrySpec's whitelist (letters, digits and . _ ~ ^ * - @ /),
@@ -42,9 +54,15 @@ function check(spec) {
     let err = "";
     child.stdout.on("data", (c) => (out += c));
     child.stderr.on("data", (c) => (err += c));
-    const timer = setTimeout(() => child.kill(), CHECK_TIMEOUT_MS);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killTree(child);
+    }, CHECK_TIMEOUT_MS);
     child.on("close", (code) => {
       clearTimeout(timer);
+      // A check stopped here is no answer, whatever exit code the kill left.
+      if (timedOut) return resolve({ spec, code: 3, result: null, error: `the check did not finish within ${CHECK_TIMEOUT_MS / 1000} s` });
       let result = null;
       try {
         result = JSON.parse(out.trim().split("\n").pop() || "null");

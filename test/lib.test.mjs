@@ -77,6 +77,18 @@ test("an unanswered check never blocks, unless strict", () => {
   assert.match(decide([{ spec: "x", code: 3, result: null, error: "check failed: fetch failed" }]).note, /\(the notary could not be reached; the install went ahead\)/);
 });
 
+// 1.6.1: the published keys are on another host than the notary. When only they are
+// down, @kenwea/mcp 0.7.3 exits 3, and that is a note, said as what it is; a record
+// that did not verify against keys that were read still asks (above).
+test("published keys that could not be read are a note, not a question", () => {
+  const d = decide([{ spec: "x@1.0.0", code: 3, result: null, error: "the record could not be verified, so nothing is claimed about it: could not read the published keys at https://www.kenwea.com/.well-known/kenwea-attestation-keys.json: fetch failed" }]);
+  assert.equal(d.decision, "allow");
+  assert.match(d.note, /no Kenwea record yet \(Kenwea's published keys could not be read, so its record could not be checked; the install went ahead\)/);
+  assert.doesNotMatch(d.note, /notary could not be reached/);
+  const timedOut = decide([{ spec: "x@1.0.0", code: 3, result: null, error: "the check did not finish within 140 s" }]);
+  assert.match(timedOut.note, /no Kenwea record yet \(the check did not finish within 140 s; the install went ahead\)/);
+});
+
 test("a failed or stopped step is reported with its reason, not as a pass", () => {
   const d = decide([{ spec: "esbuild", code: 0, result: rec({ verdict: "manual_review", reasonCode: "step_timed_out", installSteps: ["postinstall"], observed: { dns: [], network: [] } }) }]);
   assert.equal(d.decision, "allow");

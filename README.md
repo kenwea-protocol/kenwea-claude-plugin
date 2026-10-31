@@ -31,14 +31,14 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 /plugin install kenwea-notary@kenwea
 ```
 
-No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.2`).
+No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.3`).
 
 ### Why Claude warns that this plugin "runs code"
 
 Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (91 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (213 lines). That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
 
 - it reads the command Claude is about to run, and does nothing unless it is an install that names packages;
-- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.2 check <name> --json`;
+- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.3 check <name> --json`;
 - the notary receives only package names, never the command, your files or your environment (npx itself fetches `@kenwea/mcp` from the npm registry the first time, into npm's usual cache);
 - the hook writes no file of its own and changes no setting; all it can do is add a note or ask you before the install runs.
 
@@ -56,6 +56,9 @@ Claude shows that warning for every plugin with a command hook, and this one has
 | a step failed or hit the check's time limit, or the check could not see what runs | the install runs, with a note that the result is inconclusive and why; that is not a pass |
 | nothing of the package's own runs at install | nothing is said |
 | the notary could not be reached, or the hourly limit was hit | the install runs, with a note that there is no Kenwea record yet and why |
+| Kenwea's published key list could not be read, so the record could not be checked | the install runs, with that note; nothing was found wrong with the record |
+
+When the notary does not answer at all, the hook gives up within about 15 seconds instead of waiting for the check's own time limit.
 
 Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made.
 
