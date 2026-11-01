@@ -60,7 +60,9 @@ Claude shows that warning for every plugin with a command hook, and this one has
 
 When the notary does not answer at all, the hook gives up within about 15 seconds instead of waiting for the check's own time limit.
 
-Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made.
+Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made, or when its result is inconclusive.
+
+In CI the guard is strict unless you set `KENWEA_GUARD_STRICT=0`. It treats a run as CI when `CI` is set to anything but `false` or `0`, or when one of the variables CI services set is present (`GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `JENKINS_URL`, `TF_BUILD` and a few more). Nobody reads a note in CI, and a headless Claude cannot answer the question, so an install the notary could not check is stopped there, and the message says why and how to turn it off. A checked install is treated the same in CI as anywhere else.
 
 It does not check installs with `--ignore-scripts` (nothing runs), a bare `npm install` from your lockfile, local paths, git or URL specs, or version ranges with comparison operators. It checks at most five packages per command. Each check takes a few seconds, longer the first time a package is seen.
 

@@ -11,13 +11,15 @@
 //     at install;
 //   - stays silent when nothing of the package's own runs at install.
 // A check that cannot be made (rate limit, no connection) never blocks the work:
-// it is noted, unless KENWEA_GUARD_STRICT=1, which asks instead.
+// it is noted, unless KENWEA_GUARD_STRICT=1, which asks instead. In CI the
+// guard is strict unless KENWEA_GUARD_STRICT=0 (1.7.0): nobody reads a note
+// there, and a headless agent cannot answer, so asking stops the install.
 //
 // Nothing is sent but the package names. Installs with --ignore-scripts, and a
 // bare `npm install` from a lockfile, are not checked here.
 
 import { spawn } from "node:child_process";
-import { parseInstalls, decide } from "./lib.mjs";
+import { parseInstalls, decide, guardMode } from "./lib.mjs";
 
 const CLI = "@kenwea/mcp@0.7.3";
 const MAX_PACKAGES = 5;
@@ -95,7 +97,7 @@ async function main() {
   if (!specs.length) return;
 
   const checks = await Promise.all(specs.map(check));
-  const { decision, reason, note } = decide(checks, { strict: process.env.KENWEA_GUARD_STRICT === "1" });
+  const { decision, reason, note } = decide(checks, guardMode(process.env));
   if (decision === "silent") return;
   const out =
     decision === "ask"

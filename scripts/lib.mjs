@@ -160,10 +160,30 @@ function plainError(e) {
   return e;
 }
 
+// Variables CI services set (1.7.0). CI=true covers most of them; the rest are
+// for the ones that do not set it, or set it only in some setups.
+const CI_VARS = ["GITHUB_ACTIONS", "GITLAB_CI", "BUILDKITE", "CIRCLECI", "TRAVIS", "JENKINS_URL", "TF_BUILD",
+  "BITBUCKET_BUILD_NUMBER", "CODEBUILD_BUILD_ID", "TEAMCITY_VERSION", "DRONE", "SEMAPHORE", "APPVEYOR", "BUILD_ID_GCB"];
+
+/**
+ * Whether a check that cannot be made stops the install (1.7.0).
+ * KENWEA_GUARD_STRICT=1 turns it on and =0 off; unset, it is on in CI, where
+ * nobody is there to read a note and an unchecked install is the one to stop.
+ * @param {Record<string, string|undefined>} env
+ * @returns {{strict: boolean, ci: string}} ci: the variable that said CI, or ""
+ */
+export function guardMode(env) {
+  const set = (v) => typeof v === "string" && v !== "" && v.toLowerCase() !== "false" && v !== "0";
+  const ci = set(env.CI) ? "CI" : CI_VARS.find((k) => set(env[k])) || "";
+  if (env.KENWEA_GUARD_STRICT === "1") return { strict: true, ci: "" };
+  if (env.KENWEA_GUARD_STRICT === "0") return { strict: false, ci: "" };
+  return { strict: ci !== "", ci };
+}
+
 /**
  * What the hook says, from the checked records.
  * @param {{spec: string, code: number, result: any, error?: string}[]} checks
- * @param {{strict?: boolean}} [opts]
+ * @param {{strict?: boolean, ci?: string}} [opts] ci: set when strict came from CI
  * @returns {{decision: "allow"|"ask"|"silent", reason: string, note: string}}
  */
 /** The record's signed payload as an object, or null. */
@@ -262,7 +282,10 @@ export function decide(checks, opts = {}) {
   const suffix = "Signed and verified by the Kenwea notary: https://www.kenwea.com/verify";
   // Strict mode asks when there is no record; that is not a check, so say so.
   if (asks.length && asks.every((a) => a.includes(": no Kenwea record yet ("))) {
-    return { decision: "ask", reason: `Kenwea could not check this install, and KENWEA_GUARD_STRICT is set. ${asks.join("; ")}.${notes.length ? ` Also: ${notes.join("; ")}.` : ""}`, note: "" };
+    const why = opts.ci
+      ? `this looks like CI (${opts.ci} is set), where the guard stops an install it could not check; set KENWEA_GUARD_STRICT=0 to let such installs go ahead`
+      : "KENWEA_GUARD_STRICT is set";
+    return { decision: "ask", reason: `Kenwea could not check this install, and ${why}. ${asks.join("; ")}.${notes.length ? ` Also: ${notes.join("; ")}.` : ""}`, note: "" };
   }
   if (asks.length) {
     return { decision: "ask", reason: `Kenwea checked this install before it runs. ${asks.join("; ")}.${notes.length ? ` Also: ${notes.join("; ")}.` : ""} ${suffix}`, note: "" };

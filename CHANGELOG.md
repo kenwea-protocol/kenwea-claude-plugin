@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0 (2026-11-01)
+
+In CI the guard now stops an install it could not check. Until now, when the notary could not be reached, its hourly limit was hit, or its key list could not be read, the install went ahead with a note, everywhere. That is still what happens on your own machine. In CI nobody reads the note, so the guard is strict there, as it has been with `KENWEA_GUARD_STRICT=1`: it asks, and a headless Claude cannot answer, so the install does not run. A run counts as CI when `CI` is set to anything but `false` or `0`, or when `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`, `JENKINS_URL`, `TF_BUILD`, `BITBUCKET_BUILD_NUMBER`, `CODEBUILD_BUILD_ID`, `TEAMCITY_VERSION`, `DRONE`, `SEMAPHORE`, `APPVEYOR` or `BUILD_ID_GCB` is set. The message starts `Kenwea could not check this install, and this looks like CI (GITHUB_ACTIONS is set)` and says that `KENWEA_GUARD_STRICT=0` lets such installs go ahead. `KENWEA_GUARD_STRICT=1` still turns strict mode on anywhere. A checked install is answered the same way in CI as before. The hook still runs `@kenwea/mcp` 0.7.3.
+
+Asked for on Moltbook by agenthaven, who pointed out that anyone able to block Kenwea's key list could turn a forged record into a note.
+
 ## 1.6.1 (2026-10-31)
 
 What the hook does when Kenwea is down was measured on 31 October against stand-in servers, and fixed where it fell short. The install was never held up, but it could be slow, and in one case you were asked a question you should not have been.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decide, parseInstalls, registrySpec, changedBehavior } from "../scripts/lib.mjs";
+import { decide, parseInstalls, registrySpec, changedBehavior, guardMode } from "../scripts/lib.mjs";
 
 const specs = (cmd) => parseInstalls(cmd).flatMap((i) => i.specs);
 
@@ -75,6 +75,25 @@ test("an unanswered check never blocks, unless strict", () => {
   assert.match(strict.reason, /^Kenwea could not check this install/);
   assert.doesNotMatch(strict.reason, /Signed and verified/);
   assert.match(decide([{ spec: "x", code: 3, result: null, error: "check failed: fetch failed" }]).note, /\(the notary could not be reached; the install went ahead\)/);
+});
+
+// 1.7.0: strict in CI unless turned off, and the question says why it stopped.
+test("strict in CI unless KENWEA_GUARD_STRICT=0", () => {
+  assert.deepEqual(guardMode({}), { strict: false, ci: "" });
+  assert.deepEqual(guardMode({ CI: "true" }), { strict: true, ci: "CI" });
+  assert.deepEqual(guardMode({ GITHUB_ACTIONS: "true" }), { strict: true, ci: "GITHUB_ACTIONS" });
+  assert.deepEqual(guardMode({ CI: "false" }), { strict: false, ci: "" });
+  assert.deepEqual(guardMode({ CI: "0", JENKINS_URL: "" }), { strict: false, ci: "" });
+  assert.deepEqual(guardMode({ CI: "true", KENWEA_GUARD_STRICT: "0" }), { strict: false, ci: "" });
+  assert.deepEqual(guardMode({ KENWEA_GUARD_STRICT: "1" }), { strict: true, ci: "" });
+  const c = [{ spec: "x", code: 3, result: null, error: "check refused: rate_limited" }];
+  const d = decide(c, guardMode({ GITHUB_ACTIONS: "true" }));
+  assert.equal(d.decision, "ask");
+  assert.match(d.reason, /^Kenwea could not check this install, and this looks like CI \(GITHUB_ACTIONS is set\)/);
+  assert.match(d.reason, /KENWEA_GUARD_STRICT=0/);
+  assert.equal(decide(c, guardMode({ CI: "1", KENWEA_GUARD_STRICT: "0" })).decision, "allow");
+  // A checked record is answered the same way in CI as anywhere.
+  assert.equal(decide([{ spec: "x", code: 0, result: { checked: true, installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" } }], guardMode({ CI: "true" })).decision, "silent");
 });
 
 // 1.6.1: the published keys are on another host than the notary. When only they are
