@@ -166,25 +166,32 @@ const CI_VARS = ["GITHUB_ACTIONS", "GITLAB_CI", "BUILDKITE", "CIRCLECI", "TRAVIS
   "BITBUCKET_BUILD_NUMBER", "CODEBUILD_BUILD_ID", "TEAMCITY_VERSION", "DRONE", "SEMAPHORE", "APPVEYOR", "BUILD_ID_GCB"];
 
 /**
- * Whether a check that cannot be made stops the install (1.7.0).
- * KENWEA_GUARD_STRICT=1 turns it on and =0 off; unset, it is on in CI, where
+ * Whether a check that cannot be made stops the install (1.7.0), and whether
+ * anyone is there to answer a question (1.7.1).
+ * KENWEA_GUARD_STRICT=1 turns strict on and =0 off; unset, it is on in CI, where
  * nobody is there to read a note and an unchecked install is the one to stop.
+ * Unattended is CI, or a session in dontAsk or bypassPermissions mode. There a
+ * question is not asked but answered "deny". Measured 2026-11-02 with claude -p:
+ * with permissions bypassed a hook's "ask" let the command run, unasked, and
+ * "deny" stopped it; without bypass both stopped it.
  * @param {Record<string, string|undefined>} env
- * @returns {{strict: boolean, ci: string}} ci: the variable that said CI, or ""
+ * @param {string} [permissionMode] the hook input's permission_mode
+ * @returns {{strict: boolean, ci: string, unattended: boolean}} ci: the variable that made it strict, or ""
  */
-export function guardMode(env) {
+export function guardMode(env, permissionMode = "") {
   const set = (v) => typeof v === "string" && v !== "" && v.toLowerCase() !== "false" && v !== "0";
   const ci = set(env.CI) ? "CI" : CI_VARS.find((k) => set(env[k])) || "";
-  if (env.KENWEA_GUARD_STRICT === "1") return { strict: true, ci: "" };
-  if (env.KENWEA_GUARD_STRICT === "0") return { strict: false, ci: "" };
-  return { strict: ci !== "", ci };
+  const unattended = ci !== "" || permissionMode === "dontAsk" || permissionMode === "bypassPermissions";
+  if (env.KENWEA_GUARD_STRICT === "1") return { strict: true, ci: "", unattended };
+  if (env.KENWEA_GUARD_STRICT === "0") return { strict: false, ci: "", unattended };
+  return { strict: ci !== "", ci, unattended };
 }
 
 /**
  * What the hook says, from the checked records.
  * @param {{spec: string, code: number, result: any, error?: string}[]} checks
- * @param {{strict?: boolean, ci?: string}} [opts] ci: set when strict came from CI
- * @returns {{decision: "allow"|"ask"|"silent", reason: string, note: string}}
+ * @param {{strict?: boolean, ci?: string, unattended?: boolean}} [opts] ci: set when strict came from CI
+ * @returns {{decision: "allow"|"ask"|"deny"|"silent", reason: string, note: string}}
  */
 /** The record's signed payload as an object, or null. */
 export function signedFacts(result) {
@@ -198,6 +205,16 @@ export function signedFacts(result) {
 }
 
 export function decide(checks, opts = {}) {
+  const d = decideAttended(checks, opts);
+  if (d.decision !== "ask" || !opts.unattended) return d;
+  // Nobody can answer here, so the question is answered for them (1.7.1).
+  const ours = d.reason.startsWith("Kenwea could not check")
+    ? " The check failed on Kenwea's side (unreachable, or its hourly limit of 20 checks per address), not because of the package."
+    : "";
+  return { decision: "deny", reason: `${d.reason} Nobody can answer a question here, so the install was stopped instead of asked about.${ours}`, note: "" };
+}
+
+function decideAttended(checks, opts) {
   const asks = [];
   const notes = [];
   for (const c of checks) {

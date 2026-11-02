@@ -79,21 +79,35 @@ test("an unanswered check never blocks, unless strict", () => {
 
 // 1.7.0: strict in CI unless turned off, and the question says why it stopped.
 test("strict in CI unless KENWEA_GUARD_STRICT=0", () => {
-  assert.deepEqual(guardMode({}), { strict: false, ci: "" });
-  assert.deepEqual(guardMode({ CI: "true" }), { strict: true, ci: "CI" });
-  assert.deepEqual(guardMode({ GITHUB_ACTIONS: "true" }), { strict: true, ci: "GITHUB_ACTIONS" });
-  assert.deepEqual(guardMode({ CI: "false" }), { strict: false, ci: "" });
-  assert.deepEqual(guardMode({ CI: "0", JENKINS_URL: "" }), { strict: false, ci: "" });
-  assert.deepEqual(guardMode({ CI: "true", KENWEA_GUARD_STRICT: "0" }), { strict: false, ci: "" });
-  assert.deepEqual(guardMode({ KENWEA_GUARD_STRICT: "1" }), { strict: true, ci: "" });
+  assert.deepEqual(guardMode({}), { strict: false, ci: "", unattended: false });
+  assert.deepEqual(guardMode({ CI: "true" }), { strict: true, ci: "CI", unattended: true });
+  assert.deepEqual(guardMode({ GITHUB_ACTIONS: "true" }), { strict: true, ci: "GITHUB_ACTIONS", unattended: true });
+  assert.deepEqual(guardMode({ CI: "false" }), { strict: false, ci: "", unattended: false });
+  assert.deepEqual(guardMode({ CI: "0", JENKINS_URL: "" }), { strict: false, ci: "", unattended: false });
+  assert.deepEqual(guardMode({ CI: "true", KENWEA_GUARD_STRICT: "0" }), { strict: false, ci: "", unattended: true });
+  assert.deepEqual(guardMode({ KENWEA_GUARD_STRICT: "1" }), { strict: true, ci: "", unattended: false });
+  assert.deepEqual(guardMode({}, "dontAsk"), { strict: false, ci: "", unattended: true });
+  // With permissions bypassed an "ask" runs the command unasked (measured 2026-11-02).
+  assert.deepEqual(guardMode({}, "bypassPermissions"), { strict: false, ci: "", unattended: true });
+  // An install that could not be checked still goes ahead there with a note: strict is off.
+  assert.equal(decide([{ spec: "x", code: 3, result: null, error: "check failed: fetch failed" }], guardMode({}, "bypassPermissions")).decision, "allow");
   const c = [{ spec: "x", code: 3, result: null, error: "check refused: rate_limited" }];
   const d = decide(c, guardMode({ GITHUB_ACTIONS: "true" }));
-  assert.equal(d.decision, "ask");
+  assert.equal(d.decision, "deny");
+  assert.match(d.reason, /Nobody can answer a question here/);
+  assert.match(d.reason, /Kenwea's side/);
+  assert.equal(decide(c, guardMode({ KENWEA_GUARD_STRICT: "1" })).decision, "ask");
   assert.match(d.reason, /^Kenwea could not check this install, and this looks like CI \(GITHUB_ACTIONS is set\)/);
   assert.match(d.reason, /KENWEA_GUARD_STRICT=0/);
   assert.equal(decide(c, guardMode({ CI: "1", KENWEA_GUARD_STRICT: "0" })).decision, "allow");
   // A checked record is answered the same way in CI as anywhere.
   assert.equal(decide([{ spec: "x", code: 0, result: { checked: true, installSteps: [], reasonCode: "no_install_steps", verdict: "manual_review" } }], guardMode({ CI: "true" })).decision, "silent");
+  // A finding is asked about with someone there and stopped without, even with strict off.
+  const bad = [{ spec: "x", code: 4, result: null, error: "bad signature" }];
+  assert.equal(decide(bad, guardMode({})).decision, "ask");
+  const stopped = decide(bad, guardMode({ CI: "true", KENWEA_GUARD_STRICT: "0" }));
+  assert.equal(stopped.decision, "deny");
+  assert.doesNotMatch(stopped.reason, /Kenwea's side/);
 });
 
 // 1.6.1: the published keys are on another host than the notary. When only they are

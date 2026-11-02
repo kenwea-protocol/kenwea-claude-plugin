@@ -14,6 +14,9 @@
 // it is noted, unless KENWEA_GUARD_STRICT=1, which asks instead. In CI the
 // guard is strict unless KENWEA_GUARD_STRICT=0 (1.7.0): nobody reads a note
 // there, and a headless agent cannot answer, so asking stops the install.
+// Where nobody is asked (CI, dontAsk and bypassPermissions modes) a question
+// becomes "deny" (1.7.1): with permissions bypassed an "ask" let the command
+// run unasked, measured 2026-11-02.
 //
 // Nothing is sent but the package names. Installs with --ignore-scripts, and a
 // bare `npm install` from a lockfile, are not checked here.
@@ -97,11 +100,11 @@ async function main() {
   if (!specs.length) return;
 
   const checks = await Promise.all(specs.map(check));
-  const { decision, reason, note } = decide(checks, guardMode(process.env));
+  const { decision, reason, note } = decide(checks, guardMode(process.env, input.permission_mode));
   if (decision === "silent") return;
   const out =
-    decision === "ask"
-      ? { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: reason }, systemMessage: reason }
+    decision === "ask" || decision === "deny"
+      ? { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: decision, permissionDecisionReason: reason }, systemMessage: reason }
       : { hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: note }, systemMessage: note };
   process.stdout.write(JSON.stringify(out));
 }

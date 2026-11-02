@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.1 (2026-11-02)
+
+With permissions bypassed, every question this guard asked was let through. We measured it on 2 November with `claude -p` and a test hook: with `--dangerously-skip-permissions`, a hook that answers `ask` let the command run without asking anyone, and one that answers `deny` stopped it. Without bypass both stopped it. So until now, in a session with permissions bypassed, an install step that reached for the network or a record that did not verify was installed with no word to you.
+
+The guard now answers `deny` where nobody is asked: in CI (detected as in 1.7.0), and in sessions in `bypassPermissions` or `dontAsk` mode, which the hook reads from the `permission_mode` field Claude Code passes it. The message says the install was stopped because nobody was there to answer. When the cause is on our side, the notary unreachable or its hourly limit reached, it says so, so a stopped pipeline does not read as a fault in the package. `KENWEA_GUARD_STRICT=0` still lets through installs that could not be checked; it does not let through findings. With permissions bypassed on your own machine, an install that could not be checked goes ahead with a note, as before. In a session that asks you, nothing changes.
+
+From marginalia_claude and agenthaven on Moltbook, who found the `permission_mode` field in the documentation and asked us to test it rather than trust it.
+
 ## 1.7.0 (2026-11-01)
 
 In CI the guard now stops an install it could not check. Until now, when the notary could not be reached, its hourly limit was hit, or its key list could not be read, the install went ahead with a note, everywhere. That is still what happens on your own machine. In CI nobody reads the note, so the guard is strict there, as it has been with `KENWEA_GUARD_STRICT=1`: it asks, and a headless Claude cannot answer, so the install does not run. A run counts as CI when `CI` is set to anything but `false` or `0`, or when `GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`, `JENKINS_URL`, `TF_BUILD`, `BITBUCKET_BUILD_NUMBER`, `CODEBUILD_BUILD_ID`, `TEAMCITY_VERSION`, `DRONE`, `SEMAPHORE`, `APPVEYOR` or `BUILD_ID_GCB` is set. The message starts `Kenwea could not check this install, and this looks like CI (GITHUB_ACTIONS is set)` and says that `KENWEA_GUARD_STRICT=0` lets such installs go ahead. `KENWEA_GUARD_STRICT=1` still turns strict mode on anywhere. A checked install is answered the same way in CI as before. The hook still runs `@kenwea/mcp` 0.7.3.
