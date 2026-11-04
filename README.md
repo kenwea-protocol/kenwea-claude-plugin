@@ -31,11 +31,11 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 /plugin install kenwea-notary@kenwea
 ```
 
-No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.3`).
+No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.3`). <!-- claim:cli-pin -->
 
 ### Why Claude warns that this plugin "runs code"
 
-Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (91 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (213 lines). That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
+Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (114 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (312 lines). <!-- claim:line-counts --> That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
 
 - it reads the command Claude is about to run, and does nothing unless it is an install that names packages;
 - it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.3 check <name> --json`;
@@ -46,29 +46,29 @@ Claude shows that warning for every plugin with a command hook, and this one has
 
 | The record says | What happens |
 | --- | --- |
-| an install step tried to send a credential, or opened a credential file (the notary plants decoys) | you are asked before the install runs, with what it did |
-| a new version starts running something at install that the previous one did not | you are asked |
-| an install step appears in the dependency tree that the notary's record of the previous version does not show | you are asked |
-| the new version reaches a host or a credential file that the record of the previous version does not show | said beside the answer, as context, not as a reason to ask by itself |
-| an install step tried to reach the network | you are asked before the install runs, with what it reached and what it sent |
-| the record did not verify (bad or revoked signature, not about these bytes) | you are asked |
-| the package runs something at install and touched nothing we watch | the install runs, with a one-line note |
-| a step failed or hit the check's time limit, or the check could not see what runs | the install runs, with a note that the result is inconclusive and why; that is not a pass |
-| nothing of the package's own runs at install | nothing is said |
-| the notary could not be reached, or the hourly limit was hit | the install runs, with a note that there is no Kenwea record yet and why |
-| Kenwea's published key list could not be read, so the record could not be checked | the install runs, with that note; nothing was found wrong with the record |
+| an install step tried to send a credential, or opened a credential file (the notary plants decoys) | you are asked before the install runs, with what it did <!-- claim:ask-credentials --> |
+| a new version starts running something at install that the previous one did not | you are asked <!-- claim:ask-new-step --> |
+| an install step appears in the dependency tree that the notary's record of the previous version does not show | you are asked <!-- claim:ask-new-tree-step --> |
+| the new version reaches a host or a credential file that the record of the previous version does not show | said beside the answer, as context, not as a reason to ask by itself <!-- claim:context-new-host --> |
+| an install step tried to reach the network | you are asked before the install runs, with what it reached and what it sent <!-- claim:ask-network --> |
+| the record did not verify (bad or revoked signature, not about these bytes) | you are asked <!-- claim:ask-unverified --> |
+| the package runs something at install and touched nothing we watch | the install runs, with a one-line note <!-- claim:note-quiet --> |
+| a step failed or hit the check's time limit, or the check could not see what runs | the install runs, with a note that the result is inconclusive and why; that is not a pass <!-- claim:note-inconclusive --> |
+| nothing of the package's own runs at install | nothing is said <!-- claim:silent-nothing-runs --> |
+| the notary could not be reached, or the hourly limit was hit | the install runs, with a note that there is no Kenwea record yet and why <!-- claim:note-unreachable --> |
+| Kenwea's published key list could not be read, so the record could not be checked | the install runs, with that note; nothing was found wrong with the record <!-- claim:note-keys-unreadable --> |
 
-When the notary does not answer at all, the hook gives up within about 15 seconds instead of waiting for the check's own time limit.
+When the notary does not answer at all, the hook gives up within about 15 seconds instead of waiting for the check's own time limit. <!-- claim:gives-up-15s -->
 
-Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made, or when its result is inconclusive.
+Set `KENWEA_GUARD_STRICT=1` to be asked instead when a check could not be made, or when its result is inconclusive. <!-- claim:strict-env -->
 
-In CI the guard is strict unless you set `KENWEA_GUARD_STRICT=0`. It treats a run as CI when `CI` is set to anything but `false` or `0`, or when one of the variables CI services set is present (`GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `JENKINS_URL`, `TF_BUILD` and a few more). Nobody reads a note in CI, so an install the notary could not check is stopped there, and the message says why and how to turn it off.
+In CI the guard is strict unless you set `KENWEA_GUARD_STRICT=0`. It treats a run as CI when `CI` is set to anything but `false` or `0`, or when one of the variables CI services set is present (`GITHUB_ACTIONS`, `GITLAB_CI`, `BUILDKITE`, `CIRCLECI`, `JENKINS_URL`, `TF_BUILD` and a few more). Nobody reads a note in CI, so an install the notary could not check is stopped there, and the message says why and how to turn it off. <!-- claim:ci-strict -->
 
-Where nobody is asked, in CI or in a session in `dontAsk` or `bypassPermissions` mode, the guard does not ask: it answers `deny`, and the message says it stopped the install because nobody was there to answer. We measured why on 2 November: with permissions bypassed, a hook that answers `ask` lets the command run without asking anyone, and `deny` stops it. So a package the guard would ask you about is stopped there, even with `KENWEA_GUARD_STRICT=0`, which only lets through installs that could not be checked. With permissions bypassed on your own machine, an install that could not be checked still goes ahead with a note.
+Where nobody is asked, in CI or in a session in `dontAsk` or `bypassPermissions` mode, the guard does not ask: it answers `deny`, and the message says it stopped the install because nobody was there to answer. We measured why on 2 November: with permissions bypassed, a hook that answers `ask` lets the command run without asking anyone, and `deny` stops it. So a package the guard would ask you about is stopped there, even with `KENWEA_GUARD_STRICT=0`, which only lets through installs that could not be checked. With permissions bypassed on your own machine, an install that could not be checked still goes ahead with a note. <!-- claim:unattended-deny -->
 
-It does not check installs with `--ignore-scripts` (nothing runs), a bare `npm install` from your lockfile, local paths, git or URL specs, or version ranges with comparison operators. It checks at most five packages per command. Each check takes a few seconds, longer the first time a package is seen.
+It does not check installs with `--ignore-scripts` (nothing runs), a bare `npm install` from your lockfile, local paths, git or URL specs, or version ranges with comparison operators. It checks at most five packages per command. Each check takes a few seconds, longer the first time a package is seen. <!-- claim:not-checked-specs -->
 
-It also adds the `kenwea-notary` MCP server (`kenwea_notary_check`, `kenwea_notary_verify`, `kenwea_notary_get_public_key`) and a skill that tells Claude how to read a record.
+It also adds the `kenwea-notary` MCP server, whose tools check a package, a lockfile's whole tree and an MCP server's tool definitions, and verify a record, and a skill that tells Claude how to read a record.
 
 ## What a check does not tell you
 

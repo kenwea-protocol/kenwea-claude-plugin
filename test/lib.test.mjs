@@ -18,6 +18,7 @@ test("finds the packages each manager would install", () => {
   assert.deepEqual(specs("npm.cmd install chalk"), ["chalk"]);
 });
 
+// claim: not-checked-specs
 test("leaves out what the notary does not check", () => {
   assert.deepEqual(specs("npm install"), [], "a bare install from the lockfile");
   assert.deepEqual(specs("npm ci"), []);
@@ -28,6 +29,7 @@ test("leaves out what the notary does not check", () => {
   assert.deepEqual(specs("pnpm install"), []);
 });
 
+// claim: not-checked-specs
 test("an install with scripts off is marked so", () => {
   const [i] = parseInstalls("npm install esbuild --ignore-scripts");
   assert.equal(i.ignoreScripts, true);
@@ -44,26 +46,31 @@ test("nothing a shell would interpret survives as a spec", () => {
 
 const rec = (over) => ({ checked: true, verdict: "approved", reasonCode: "ran_ok", installSteps: [], observed: null, ...over });
 
+// claim: silent-nothing-runs
 test("silent when nothing runs at install", () => {
   assert.equal(decide([{ spec: "lodash", code: 0, result: rec({ verdict: "manual_review", reasonCode: "no_install_steps" }) }]).decision, "silent");
 });
 
+// claim: note-quiet
 test("a note when something runs at install and reaches nothing", () => {
   const d = decide([{ spec: "core-js", code: 0, result: rec({ installSteps: ["postinstall"], observed: { dns: [], network: [] } }) }]);
   assert.equal(d.decision, "allow");
   assert.match(d.note, /core-js: runs postinstall at install; it finished and touched nothing we watch/);
 });
 
+// claim: ask-network
 test("asks when an install step tried the network, naming what", () => {
   const d = decide([{ spec: "telemetry-pkg", code: 0, result: rec({ verdict: "manual_review", reasonCode: "ran_tried_network", installSteps: ["postinstall"], observed: { dns: ["scarf.sh"], network: [] } }) }]);
   assert.equal(d.decision, "ask");
   assert.match(d.reason, /scarf\.sh/);
 });
 
+// claim: ask-unverified
 test("asks when a record did not verify", () => {
   assert.equal(decide([{ spec: "x", code: 4, result: null, error: "it was signed with key 00f55dd04da212b3, which Kenwea has revoked" }]).decision, "ask");
 });
 
+// claim: note-unreachable, strict-env
 test("an unanswered check never blocks, unless strict", () => {
   const c = [{ spec: "x", code: 3, result: null, error: "check refused: rate_limited" }];
   const d = decide(c);
@@ -78,6 +85,7 @@ test("an unanswered check never blocks, unless strict", () => {
 });
 
 // 1.7.0: strict in CI unless turned off, and the question says why it stopped.
+// claim: ci-strict, unattended-deny
 test("strict in CI unless KENWEA_GUARD_STRICT=0", () => {
   assert.deepEqual(guardMode({}), { strict: false, ci: "", unattended: false });
   assert.deepEqual(guardMode({ CI: "true" }), { strict: true, ci: "CI", unattended: true });
@@ -113,6 +121,7 @@ test("strict in CI unless KENWEA_GUARD_STRICT=0", () => {
 // 1.6.1: the published keys are on another host than the notary. When only they are
 // down, @kenwea/mcp 0.7.3 exits 3, and that is a note, said as what it is; a record
 // that did not verify against keys that were read still asks (above).
+// claim: note-keys-unreadable
 test("published keys that could not be read are a note, not a question", () => {
   const d = decide([{ spec: "x@1.0.0", code: 3, result: null, error: "the record could not be verified, so nothing is claimed about it: could not read the published keys at https://www.kenwea.com/.well-known/kenwea-attestation-keys.json: fetch failed" }]);
   assert.equal(d.decision, "allow");
@@ -122,6 +131,7 @@ test("published keys that could not be read are a note, not a question", () => {
   assert.match(timedOut.note, /no Kenwea record yet \(the check did not finish within 140 s; the install went ahead\)/);
 });
 
+// claim: note-inconclusive
 test("a failed or stopped step is reported with its reason, not as a pass", () => {
   const d = decide([{ spec: "esbuild", code: 0, result: rec({ verdict: "manual_review", reasonCode: "step_timed_out", installSteps: ["postinstall"], observed: { dns: [], network: [] } }) }]);
   assert.equal(d.decision, "allow");
@@ -143,6 +153,7 @@ test("decide: reads the signed facts, not the unsigned copy", () => {
   assert.equal(decide([{ spec: "x@1.0.0", code: 0, result: r }]).decision, "ask");
 });
 
+// claim: ask-credentials, ask-new-step
 test("decide: decoy credentials and a new install step ask first", () => {
   const signed = (facts, extra = {}) => ({ spec: "x@2.0.0", code: 0, result: { ...extra, signedAttestation: { payload: JSON.stringify(facts) } } });
   const ran = { installSteps: ["postinstall"], reasonCode: "ran_ok", verdict: "approved", observed: { dns: [], network: [] } };
@@ -174,6 +185,7 @@ test("decide: a step in the dependency tree is reported as checked, and as the d
 });
 
 // 1.6.0: sincePrevious.behavior, from the notary's records of both versions.
+// claim: ask-new-tree-step, context-new-host
 test("decide: a new install step in the tree asks; other differences are said beside the record", () => {
   const signed = (since, level = "quiet") => ({ spec: "x@2.0.0", code: 0, result: { sincePrevious: since, signedAttestation: { payload: JSON.stringify({ installSteps: [], reasonCode: "ran_ok", verdict: "approved", level, observed: { dns: [], network: [] }, dependencies: { installSteps: ["dep@1.0.0 postinstall"] } }) } } });
   const base = { known: true, worse: true, sameChecker: true, previous: "1.9.0", previousLevel: "quiet", level: "quiet" };

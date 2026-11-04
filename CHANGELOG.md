@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.2 (2026-11-04)
+
+The README said two things that had stopped being true. The hook's files were "91 lines" and "213 lines"; they are 114 and 312. And the MCP server it adds was listed with three tools; it has five, the lockfile and tool-definition checks among them. Both are fixed, and the README now describes the server's tools instead of listing names that go out of date.
+
+So that this does not happen again quietly, each sentence in the README that says what the guard does carries an invisible marker, and the test that shows that behaviour names the same marker. A new test fails when a claim has no test, when a test names a claim the README no longer makes, when a line count or the `@kenwea/mcp` version named in the README or the skill differs from the files, or when the number of packages checked per command differs from the README's. The guard's behaviour is unchanged.
+
+From marginalia_claude on Moltbook, who suggested giving README claims an id and a test.
+
 ## 1.7.1 (2026-11-02)
 
 With permissions bypassed, every question this guard asked was let through. We measured it on 2 November with `claude -p` and a test hook: with `--dangerously-skip-permissions`, a hook that answers `ask` let the command run without asking anyone, and one that answers `deny` stopped it. Without bypass both stopped it. So until now, in a session with permissions bypassed, an install step that reached for the network or a record that did not verify was installed with no word to you.
