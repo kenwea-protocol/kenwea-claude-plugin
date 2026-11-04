@@ -1,26 +1,26 @@
 # Kenwea notary for Claude Code
 
-Checks an npm package **before Claude installs it**. When Claude is about to run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, a hook asks the [Kenwea notary](https://www.kenwea.com/verify) first. The notary fetches the exact tarball npm would install, runs the install steps npm would run in a container with no route out, no capabilities, a read-only filesystem and no root, with decoy credentials planted where a developer machine or CI runner keeps real ones, and traces what each step attempts: network, programs, credential files opened, and any attempt to send a decoy. There is no route out of the container, but a stand-in network inside it answers every lookup and accepts connections on ports 80, 443, 8080 and 8443, so the record says what a step sent: plain HTTP in full, HTTPS by server name and size (never decrypted), and any decoy a request carried. The signed record is verified on your machine before anything is said about it.
+Checks an npm package **before Claude installs it**. When Claude is about to run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, a hook asks the [Kenwea notary](https://www.kenwea.com/verify) first. The notary fetches the exact tarball npm would install, runs the install steps npm would run in a container with no route out, no capabilities, a read-only filesystem and no root, with decoy credentials planted where a developer machine or CI runner keeps real ones, and traces what each step attempts: network, programs, credential files opened, and any attempt to send a decoy. There is no route out of the container, but a stand-in network inside it answers every lookup and accepts every TCP connection, on any port and straight to any IP address, so the record says what a step sent: plain HTTP in full, HTTPS in full when the step accepts the stand-in's own certificate authority (the sandbox tells steps to trust it, as a CI runner behind an inspecting proxy is told to) and by server name and size when it refuses it, and any decoy a request carried. The signed record is verified on your machine before anything is said about it. <!-- description: what the notary does, tested in the notary's own sandbox tests -->
 
 ```
 > Kenwea: core-js@3.50.0: runs postinstall at install; it finished and touched nothing we watch (no network, no credential files).
 ```
 
-That line is from a real Claude Code session on 10 October 2026.
+That line is from a real Claude Code session on 10 October 2026. <!-- description: a dated example -->
 
 ## Why the notary exists
 
-The notary was built for [Kenwea](https://www.kenwea.com), a marketplace where AI agents sell code, prompt kits and other digital products to people and to other agents. A buyer there has no one to ask what a download will do on their machine. So every listing goes through a sandbox before it is sold, and a listing whose download holds an npm or PyPI package carries the notary's signed record of that package on its page (798 listings in October 2026). The record is signed so that a buyer, or a buyer's agent, can check it without trusting Kenwea.
+The notary was built for [Kenwea](https://www.kenwea.com), a marketplace where AI agents sell code, prompt kits and other digital products to people and to other agents. A buyer there has no one to ask what a download will do on their machine. So every listing goes through a sandbox before it is sold, and a listing whose download holds an npm or PyPI package carries the notary's signed record of that package on its page (798 listings in October 2026). The record is signed so that a buyer, or a buyer's agent, can check it without trusting Kenwea. <!-- description: a dated count, about Kenwea rather than this plugin -->
 
 The same check works for any npm package, so it is open to everyone, free and without an account. This plugin puts it in front of the installs Claude runs for you.
 
 ## What you can use it for
 
-- Claude asks the notary before it installs a package with npm, pnpm, yarn or bun. You are asked first when an install step reaches for the network or a credential, and otherwise get a one-line note or nothing.
-- Ask about a package or a whole lockfile yourself: in Claude through the `kenwea-notary` MCP tools, or in a terminal with `npx -y @kenwea/mcp check <package>` and `npx -y @kenwea/mcp check-tree package-lock.json`.
-- Fail a CI build on what a record says, with the GitHub Action [`kenwea-protocol/kenwea-notary-action@v2`](https://github.com/kenwea-protocol/kenwea-notary-action).
-- Check PyPI projects (`pypi:requests`) and OpenClaw plugins on ClawHub (`clawhub:name`) the same way.
-- Verify a record with your own Ed25519 code, or paste it at [kenwea.com/verify](https://www.kenwea.com/verify), which checks it in your browser.
+- Claude asks the notary before it installs a package with npm, pnpm, yarn or bun. You are asked first when an install step reaches for the network or a credential, and otherwise get a one-line note or nothing. <!-- description: a summary of the table below, whose rows are claims -->
+- Ask about a package or a whole lockfile yourself: in Claude through the `kenwea-notary` MCP tools, or in a terminal with `npx -y @kenwea/mcp check <package>` and `npx -y @kenwea/mcp check-tree package-lock.json`. <!-- description: tools of @kenwea/mcp, tested in that package -->
+- Fail a CI build on what a record says, with the GitHub Action [`kenwea-protocol/kenwea-notary-action@v2`](https://github.com/kenwea-protocol/kenwea-notary-action). <!-- description: another repository, tested there -->
+- Check PyPI projects (`pypi:requests`) and OpenClaw plugins on ClawHub (`clawhub:name`) the same way. <!-- description: what the notary accepts, tested in the notary -->
+- Verify a record with your own Ed25519 code, or paste it at [kenwea.com/verify](https://www.kenwea.com/verify), which checks it in your browser. <!-- description: the record format and the verify page, tested in the notary -->
 
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -37,10 +37,10 @@ No account, no key. Needs Node.js 18 or later on your machine (the check runs `n
 
 Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (114 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (312 lines). <!-- claim:line-counts --> That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
 
-- it reads the command Claude is about to run, and does nothing unless it is an install that names packages;
-- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.3 check <name> --json`;
-- the notary receives only package names, never the command, your files or your environment (npx itself fetches `@kenwea/mcp` from the npm registry the first time, into npm's usual cache);
-- the hook writes no file of its own and changes no setting; all it can do is add a note or ask you before the install runs.
+- it reads the command Claude is about to run, and does nothing unless it is an install that names packages; <!-- claim:only-installs -->
+- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.3 check <name> --json`; <!-- claim:spec-whitelist -->
+- the notary receives only package names, never the command, your files or your environment (npx itself fetches `@kenwea/mcp` from the npm registry the first time, into npm's usual cache); <!-- claim:names-only -->
+- the hook writes no file of its own and changes no setting; all it can do is add a note or ask you before the install runs. <!-- claim:writes-nothing -->
 
 ## What it does before an install
 
@@ -68,11 +68,11 @@ Where nobody is asked, in CI or in a session in `dontAsk` or `bypassPermissions`
 
 It does not check installs with `--ignore-scripts` (nothing runs), a bare `npm install` from your lockfile, local paths, git or URL specs, or version ranges with comparison operators. It checks at most five packages per command. Each check takes a few seconds, longer the first time a package is seen. <!-- claim:not-checked-specs -->
 
-It also adds the `kenwea-notary` MCP server, whose tools check a package, a lockfile's whole tree and an MCP server's tool definitions, and verify a record, and a skill that tells Claude how to read a record.
+It also adds the `kenwea-notary` MCP server, whose tools check a package, a lockfile's whole tree and an MCP server's tool definitions, and verify a record, and a skill that tells Claude how to read a record. <!-- claim:adds-mcp-and-skill -->
 
 ## What a check does not tell you
 
-- A package is installed with its whole dependency tree, but on its own, not inside your project. A step that acts only under one particular parent can look quiet here: @scarf/scarf reports install telemetry only for the package that depends on it ([measured](https://www.kenwea.com/guides/npm-top-5000-install-steps-traced)). `npx -y @kenwea/mcp check-tree` checks your lockfile through your own direct dependencies, which covers that case.
+- A package is installed with its whole dependency tree, but on its own, not inside your project. A step that acts only under one particular parent can look quiet here: @scarf/scarf reports install telemetry only for the package that depends on it ([measured](https://www.kenwea.com/guides/npm-top-5000-install-steps-traced)). `npx -y @kenwea/mcp check-tree` checks your lockfile through your own direct dependencies, which covers that case. <!-- description: a limit of the notary, measured in the linked guide -->
 - Code that only runs when your app calls it is not exercised.
 - A script written to notice it is being watched can stay quiet. A quiet trace is evidence, not proof.
 

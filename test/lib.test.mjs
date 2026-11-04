@@ -35,7 +35,8 @@ test("an install with scripts off is marked so", () => {
   assert.equal(i.ignoreScripts, true);
 });
 
-// The spec goes on a shell line, so anything a shell would read as syntax is out.
+// claim: spec-whitelist. The spec goes on a shell line, so anything a shell
+// would read as syntax is out.
 test("nothing a shell would interpret survives as a spec", () => {
   for (const bad of ["pkg@>=1.0", "pkg@<2", "a@1 || 2", "x;rm", "x$(id)", "x`id`", "x|y", "x>out", "x&y", "x\"y", "x'y"]) {
     assert.equal(registrySpec(bad), null, bad);

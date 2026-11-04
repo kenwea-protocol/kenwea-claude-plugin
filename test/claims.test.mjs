@@ -15,7 +15,8 @@ const read = (p) => readFileSync(new URL(p, root), "utf8");
 const readme = read("README.md");
 
 const claimed = new Set([...readme.matchAll(/<!-- claim:([a-z0-9-]+) -->/g)].map((m) => m[1]));
-const direct = new Set(["line-counts", "cli-pin", "gives-up-15s"]);
+const described = [...readme.matchAll(/<!-- description: [^>]+ -->/g)].length;
+const direct = new Set(["line-counts", "cli-pin", "gives-up-15s", "adds-mcp-and-skill"]);
 
 function tested() {
   const out = new Map();
@@ -69,4 +70,67 @@ test("the hook checks at most as many packages as the README says", () => {
   const said = readme.match(/checks at most (\w+) packages per command/);
   assert.ok(said, "the README no longer says how many packages are checked");
   assert.equal(words[said[1]], max);
+});
+
+// claim: adds-mcp-and-skill. The plugin adds the notary MCP server and the skill.
+test("the plugin adds the kenwea-notary MCP server and the skill the README names", () => {
+  const servers = JSON.parse(read(".mcp.json")).mcpServers;
+  assert.equal(servers["kenwea-notary"]?.url, "https://mcp.kenwea.com/notary/v1");
+  assert.match(read("skills/kenwea/SKILL.md"), /^---\r?\n[\s\S]*?^name: kenwea\r?$/m);
+});
+
+// Nothing goes unmarked by accident (2026-11-04, marginalia_claude on
+// Moltbook). A paragraph, list item or table row of the README that holds a
+// number, a code span, an environment variable, or one of the words before,
+// unless, never or always must carry either a claim marker or a
+// <!-- description: why --> marker. A marker covers the block it ends. So a
+// sentence nobody thought of as a claim, like the line counts once were, is
+// either given a test or written down as description, where review can
+// challenge it.
+function blocks(md) {
+  const out = [];
+  let cur = [];
+  let code = false;
+  const flush = () => cur.length && (out.push(cur.join(" ")), (cur = []));
+  for (const line of md.replace(/\r/g, "").split("\n")) {
+    if (line.startsWith("```")) { flush(); code = !code; continue; }
+    if (code) continue;
+    if (!line.trim()) { flush(); continue; }
+    if (/^\s*[-|#]/.test(line)) { flush(); out.push(line); continue; }
+    cur.push(line);
+  }
+  flush();
+  // Headings and the table's header and rule are not statements.
+  return out.filter((b) => !/^#/.test(b) && !/^\|[\s|:-]+\|$/.test(b) && !/^\| The record says/.test(b));
+}
+const RISKY = [
+  ["a number", /\d/],
+  ["a code span", /`[^`]+`/],
+  ["an environment variable", /\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b/],
+  ["before, unless, never or always", /\b(before|unless|never|always)\b/i],
+];
+test("every README block with a number, code, a variable or an absolute word is marked", () => {
+  const unmarked = [];
+  for (const b of blocks(readme)) {
+    if (/<!-- (claim:[a-z0-9-]+|description: [^>]+) -->/.test(b)) continue;
+    const text = b.replace(/\]\([^)]*\)/g, "]");
+    const why = RISKY.filter(([, re]) => re.test(text)).map(([w]) => w);
+    if (why.length) unmarked.push(`${why.join(", ")}: ${b.slice(0, 90)}`);
+  }
+  assert.deepEqual(unmarked, [], "mark these as a claim with a test, or as description");
+});
+
+// The README must not retreat unnoticed (2026-11-04, yuigui on Moltbook). The
+// easy way to pass the claim test is a sentence too vague to be a claim. So the
+// newest CHANGELOG entry that counts the README's markers must hold today's
+// count, and the claim count may only fall when that entry says why.
+test("the CHANGELOG records how many claims the README makes, and a fall is explained", () => {
+  const counts = [...read("CHANGELOG.md").matchAll(/README markers: (\d+) claims, (\d+) descriptions\.( Fewer claims because [^\n]+)?/g)];
+  assert.ok(counts.length, "no CHANGELOG entry records the README's markers");
+  const [latest, previous] = counts;
+  assert.equal(Number(latest[1]), claimed.size, `the README has ${claimed.size} claims, the CHANGELOG says ${latest[1]}`);
+  assert.equal(Number(latest[2]), described, `the README has ${described} descriptions, the CHANGELOG says ${latest[2]}`);
+  if (previous && Number(latest[1]) < Number(previous[1])) {
+    assert.ok(latest[3], `claims fell from ${previous[1]} to ${latest[1]} and the CHANGELOG does not say why`);
+  }
 });

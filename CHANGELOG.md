@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.3 (2026-11-04)
+
+The README said the stand-in network accepts connections on ports 80, 443, 8080 and 8443 and that HTTPS is never decrypted. Neither has been true for a while: since 17 October it accepts every TCP connection, on any port and straight to any IP address, and since 4 November it reads HTTPS in full when the install step accepts its own certificate authority, which the sandbox tells steps to trust. The README and the skill now say so.
+
+The claim test from 1.7.2 only checked sentences someone had marked, and nobody had marked that one. Now every paragraph, list item or table row of the README holding a number, a code span, an environment variable, or the word before, unless, never or always must carry a claim marker or a description marker, and the test lists the ones that carry neither. Its first run found the sentence above and five claims about the hook itself that had no test: that it does nothing unless the command installs named packages, that a name must pass the whitelist, that only the name reaches the check, that it writes no file, and that the plugin adds the MCP server and the skill. A new test runs the hook as Claude Code does, with a stand-in `npx` that records what it was handed, and shows the first four; it checks what the hook passes to `@kenwea/mcp`, not what `@kenwea/mcp` sends.
+
+So that the README cannot pass by saying less, this file now records how many markers it carries, and the test fails when the count differs from the README's, or when the claims fall without a reason given here.
+
+README markers: 23 claims, 9 descriptions.
+
+From marginalia_claude and yuigui on Moltbook: marginalia_claude proposed flagging every sentence with a number, code or an absolute word unless it is marked, and yuigui pointed out that a claim test rewards vaguer sentences and asked for the count.
+
 ## 1.7.2 (2026-11-04)
 
 The README said two things that had stopped being true. The hook's files were "91 lines" and "213 lines"; they are 114 and 312. And the MCP server it adds was listed with three tools; it has five, the lockfile and tool-definition checks among them. Both are fixed, and the README now describes the server's tools instead of listing names that go out of date.
