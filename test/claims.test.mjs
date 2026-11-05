@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 
@@ -14,7 +15,7 @@ const root = new URL("..", import.meta.url);
 const read = (p) => readFileSync(new URL(p, root), "utf8");
 const readme = read("README.md");
 
-const claimed = new Set([...readme.matchAll(/<!-- claim:([a-z0-9-]+) -->/g)].map((m) => m[1]));
+const claimed = new Set([...readme.matchAll(/<!-- claim:([a-z0-9-]+) #[0-9a-f]{8} -->/g)].map((m) => m[1]));
 const described = [...readme.matchAll(/<!-- description: [^>]+ -->/g)].length;
 const direct = new Set(["line-counts", "cli-pin", "gives-up-15s", "adds-mcp-and-skill"]);
 
@@ -112,7 +113,7 @@ const RISKY = [
 test("every README block with a number, code, a variable or an absolute word is marked", () => {
   const unmarked = [];
   for (const b of blocks(readme)) {
-    if (/<!-- (claim:[a-z0-9-]+|description: [^>]+) -->/.test(b)) continue;
+    if (/<!-- (claim:[a-z0-9-]+|description: [^>]+) #[0-9a-f]{8} -->/.test(b)) continue;
     const text = b.replace(/\]\([^)]*\)/g, "]");
     const why = RISKY.filter(([, re]) => re.test(text)).map(([w]) => w);
     if (why.length) unmarked.push(`${why.join(", ")}: ${b.slice(0, 90)}`);
@@ -120,17 +121,52 @@ test("every README block with a number, code, a variable or an absolute word is 
   assert.deepEqual(unmarked, [], "mark these as a claim with a test, or as description");
 });
 
+// A marked block cannot change unseen (2026-11-04, marginalia_claude on
+// Moltbook). Once a block carries a marker, a sentence with a version number
+// added to it later would pass the test above. So every marker carries a short
+// hash of its block's text, and any edit to the block fails here until whoever
+// made it writes the new hash into the marker, which puts the block back in
+// front of review. Markers are left out of the text hashed, and case and
+// whitespace are ignored, so reflowing a paragraph does not count as an edit.
+const blockHash = (b) =>
+  createHash("sha256")
+    .update(b.replace(/<!--[^>]*-->/g, " ").toLowerCase().replace(/\s+/g, " ").trim())
+    .digest("hex")
+    .slice(0, 8);
+test("every marker holds the hash of the block it marks", () => {
+  const stale = [];
+  for (const b of blocks(readme)) {
+    const want = blockHash(b);
+    for (const m of b.matchAll(/<!-- (claim:[a-z0-9-]+|description: [^>#]+?) #([0-9a-f]{8}) -->/g)) {
+      if (m[2] !== want) stale.push(`${m[1].slice(0, 40)}: the block changed, its hash is now #${want}`);
+    }
+  }
+  assert.deepEqual(stale, [], "reread these blocks, then write the new hash into their markers");
+  const markers = [...readme.matchAll(/<!-- (claim:|description: )/g)].length;
+  const hashed = [...readme.matchAll(/<!-- (claim:[a-z0-9-]+|description: [^>#]+?) #[0-9a-f]{8} -->/g)].length;
+  assert.equal(hashed, markers, "a marker has no hash");
+});
+
 // The README must not retreat unnoticed (2026-11-04, yuigui on Moltbook). The
 // easy way to pass the claim test is a sentence too vague to be a claim. So the
 // newest CHANGELOG entry that counts the README's markers must hold today's
-// count, and the claim count may only fall when that entry says why.
-test("the CHANGELOG records how many claims the README makes, and a fall is explained", () => {
-  const counts = [...read("CHANGELOG.md").matchAll(/README markers: (\d+) claims, (\d+) descriptions\.( Fewer claims because [^\n]+)?/g)];
+// count, and the claim count may only fall when that entry names each claim it
+// dropped, by id, with a reason for each: "Claims dropped: id (why); id (why)."
+// A reviewer then sees which promise went and can open the test that backed it.
+// The test cannot judge whether a reason is a good one.
+test("the CHANGELOG records how many claims the README makes, and names each one dropped", () => {
+  const counts = [...read("CHANGELOG.md").matchAll(/README markers: (\d+) claims, (\d+) descriptions\.(?: Claims dropped: ([^\n]+?)\.)?$/gm)];
   assert.ok(counts.length, "no CHANGELOG entry records the README's markers");
   const [latest, previous] = counts;
   assert.equal(Number(latest[1]), claimed.size, `the README has ${claimed.size} claims, the CHANGELOG says ${latest[1]}`);
   assert.equal(Number(latest[2]), described, `the README has ${described} descriptions, the CHANGELOG says ${latest[2]}`);
   if (previous && Number(latest[1]) < Number(previous[1])) {
-    assert.ok(latest[3], `claims fell from ${previous[1]} to ${latest[1]} and the CHANGELOG does not say why`);
+    const fell = Number(previous[1]) - Number(latest[1]);
+    assert.ok(latest[3], `claims fell from ${previous[1]} to ${latest[1]} and the CHANGELOG does not name them`);
+    const named = latest[3].split(";").map((s) => s.trim().match(/^([a-z0-9-]+) \((.{3,})\)$/));
+    assert.ok(named.every(Boolean), `write each dropped claim as "id (why)": ${latest[3]}`);
+    const ids = new Set(named.map((n) => n[1]));
+    assert.ok(ids.size >= fell, `claims fell by ${fell} and the CHANGELOG names ${ids.size}`);
+    for (const id of ids) assert.ok(!claimed.has(id), `"${id}" is named as dropped but the README still claims it`);
   }
 });

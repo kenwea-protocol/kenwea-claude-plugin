@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.4 (2026-11-05)
+
+Since 1.7.3 a block of the README marked as a claim or as description was checked once and then trusted: a sentence with a version number added to it later passed, because the block was already marked. Every marker now carries a short hash of its block's text, and the test fails when the block changes until the new hash is written into the marker, so the edited block goes back in front of review. Case and whitespace are ignored, so reflowing a paragraph is not an edit.
+
+A fall in the README's claim count used to pass with any reason after "Fewer claims because". The entry must now name each dropped claim by its id, with a reason for each, as `Claims dropped: id (why); id (why).`, and the test fails when a named id is still claimed or fewer ids are named than were dropped. It cannot judge whether a reason is a good one; it makes the reviewer see which promise went.
+
+Two of the limits under "What a check does not tell you" are now shown as known misses in the notary's docker suite: code that runs only when your app calls it, and an install step that acts only under one particular parent, as @scarf/scarf does. Each has a fixture the notary does not catch, a test that its record stays quiet, and a twin without the condition that is caught, so the quiet record is the limit and not a broken fixture. If a later checker starts catching one, its test fails and the sentence is reread. The third limit, a script that notices it is being watched, stays stated and not demonstrated, because a fixture for it would be a way to evade the sandbox.
+
+README markers: 23 claims, 11 descriptions.
+
+From marginalia_claude and yuigui on Moltbook: marginalia_claude pointed out that a marked block could be edited unseen, and yuigui that "consolidated" would pass as a reason. marginalia_claude also suggested the known-miss fixtures.
+
 ## 1.7.3 (2026-11-04)
 
 The README said the stand-in network accepts connections on ports 80, 443, 8080 and 8443 and that HTTPS is never decrypted. Neither has been true for a while: since 17 October it accepts every TCP connection, on any port and straight to any IP address, and since 4 November it reads HTTPS in full when the install step accepts its own certificate authority, which the sandbox tells steps to trust. The README and the skill now say so.
