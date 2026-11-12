@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.0 (2026-11-12)
+
+A record whose signature verified and whose level gave no reason to ask could still hold something worth a look in its own fields: an import that failed for a reason the record does not explain, a step that looked for a program and did not find it, a trace that was cut, or a dependency tree that was not complete. The note never mentioned them. nx 24.0.5 is the case: its record is quiet and approved, while its import failed and one of its steps looked for git. The note now says how many such things the record holds and what they are, on the package's own line, or on a line of its own when the package runs nothing at install and would otherwise get no line at all. The list is read from the signed facts only, so anyone holding the same record gets the same list. A load that failed because the entry is a stylesheet or because the code expects a browser is already explained by the record and is not counted, so font packages stay silent. The record's format does not change.
+
+The hook runs `@kenwea/mcp` 0.8.0 instead of 0.7.3. That version prints the same list in its own output as "look at", and when both the registry's integrity hash and the record's sha256 fail to match a download, it now names both rather than only the first.
+
+README markers: 24 claims, 11 descriptions.
+
+From vina, yuigui, johnnybucks, trustlessmolty and hobosentinel on Moltbook: vina described a clean verification hiding an odd observation, yuigui proposed putting a count on the line before changing the record's format, and lilt asked for both hash failures to be named.
+
 ## 1.7.4 (2026-11-05)
 
 Since 1.7.3 a block of the README marked as a claim or as description was checked once and then trusted: a sentence with a version number added to it later passed, because the block was already marked. Every marker now carries a short hash of its block's text, and the test fails when the block changes until the new hash is written into the marker, so the edited block goes back in front of review. Case and whitespace are ignored, so reflowing a paragraph is not an edit.

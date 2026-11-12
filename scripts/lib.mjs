@@ -204,6 +204,39 @@ export function signedFacts(result) {
   }
 }
 
+// What the signed record knows that its level does not say (1.8.0). An exact
+// copy of oddFields in @kenwea/mcp's src/odd.js, kept here so the hook does not
+// wait on a release of that package; change both together. A quiet record can
+// still hold a load that failed or a program a step looked for and did not find
+// (nx 24.0.5). Stylesheet and browser-only loads are explained, not odd.
+const EXPECTED_LOAD = [/entry is a \.\w+ file/, /expects a browser/];
+const NOT_DONE = new Set(["failed", "blocked", "not_reached"]);
+function shortCause(cause) {
+  const first = cause.split(";")[0].trim();
+  return first.length > 90 ? first.slice(0, 90) + "..." : first;
+}
+function missingOf(o) {
+  return o && typeof o === "object" && Array.isArray(o.missing) ? o.missing.map(String) : [];
+}
+export function oddFields(f) {
+  const odd = [];
+  if (!f || typeof f !== "object") return odd;
+  for (const p of Array.isArray(f.phases) ? f.phases : []) {
+    if (!p || typeof p !== "object" || p.blockedBy || !NOT_DONE.has(p.status)) continue;
+    const cause = typeof p.cause === "string" ? p.cause : "";
+    if (p.name === "load" && EXPECTED_LOAD.some((r) => r.test(cause))) continue;
+    odd.push(`${String(p.name)} ${String(p.status).replace("_", " ")}${cause ? ` (${shortCause(cause)})` : ""}`);
+  }
+  const load = f.load && typeof f.load === "object" ? f.load : {};
+  const missing = [...new Set([...missingOf(f.observed), ...missingOf(load.observed)])];
+  if (missing.length) odd.push(`a step looked for ${missing.join(", ")} and did not find it`);
+  if ((f.observed && f.observed.truncated) || (load.observed && load.observed.truncated)) odd.push("the trace was cut, so it may be incomplete");
+  const lost = Number(f.sandbox && f.sandbox.traceLost);
+  if (lost > 0) odd.push(`${lost} trace events were lost`);
+  if (f.dependencies && f.dependencies.complete === false) odd.push("the dependency tree was not complete");
+  return odd;
+}
+
 export function decide(checks, opts = {}) {
   const d = decideAttended(checks, opts);
   if (d.decision !== "ask" || !opts.unattended) return d;
@@ -270,6 +303,8 @@ function decideAttended(checks, opts) {
     if (added.length && steps.length) {
       asks.push(`${c.spec}: new since ${since.previous}, ${added.join(", ")} runs at install`);
     }
+    const odd = oddFields(f);
+    const before = { asks: asks.length, notes: notes.length };
     if (sent.length) {
       asks.push(`${c.spec}: ${who} tried to send a credential it found (${sent.join("; ")}; ours were decoys)`);
     } else if (read.length) {
@@ -294,6 +329,14 @@ function decideAttended(checks, opts) {
       notes.push(`${c.spec}: runs ${steps.join(", ")} at install; it finished and touched nothing we watch (no network, no credential files)`);
     } else {
       notes.push(`${c.spec}: runs ${steps.join(", ")} at install; ${OUTCOME[f.reasonCode] || f.reasonCode || f.verdict}`);
+    }
+    // 1.8.0: the fields the level does not cover, said on the same line, or on
+    // a line of their own when the record was otherwise nothing to mention.
+    if (odd.length) {
+      const also = `the record also has ${odd.length === 1 ? "one thing" : `${odd.length} things`} to look at: ${odd.join("; ")}`;
+      if (asks.length > before.asks) asks[asks.length - 1] += `; ${also}`;
+      else if (notes.length > before.notes) notes[notes.length - 1] += `; ${also}`;
+      else notes.push(`${c.spec}: nothing of its own runs at install, but ${also}`);
     }
   }
   const suffix = "Signed and verified by the Kenwea notary: https://www.kenwea.com/verify";

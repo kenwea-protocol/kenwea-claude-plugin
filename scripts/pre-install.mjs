@@ -24,7 +24,7 @@
 import { spawn } from "node:child_process";
 import { parseInstalls, decide, guardMode } from "./lib.mjs";
 
-const CLI = "@kenwea/mcp@0.7.3";
+const CLI = "@kenwea/mcp@0.8.0";
 const MAX_PACKAGES = 5;
 const CHECK_TIMEOUT_MS = 140_000;
 

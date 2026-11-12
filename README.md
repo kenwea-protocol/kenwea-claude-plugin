@@ -31,14 +31,14 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 /plugin install kenwea-notary@kenwea
 ```
 
-No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.7.3`). <!-- claim:cli-pin #382564c0 -->
+No account, no key. Needs Node.js 18 or later on your machine (the check runs `npx @kenwea/mcp@0.8.0`). <!-- claim:cli-pin #3db3b23f -->
 
 ### Why Claude warns that this plugin "runs code"
 
-Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (114 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (312 lines). <!-- claim:line-counts #1e219f33 --> That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
+Claude shows that warning for every plugin with a command hook, and this one has one: before each Bash or PowerShell command, Claude runs [`scripts/pre-install.mjs`](scripts/pre-install.mjs) (114 lines) with [`scripts/lib.mjs`](scripts/lib.mjs) (355 lines). <!-- claim:line-counts #79f8f126 --> That is the part that stops an install before it happens, so it cannot be left out. What it does, all of it readable in those two files:
 
 - it reads the command Claude is about to run, and does nothing unless it is an install that names packages; <!-- claim:only-installs #71c353da -->
-- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.7.3 check <name> --json`; <!-- claim:spec-whitelist #1bc57283 -->
+- it checks each package name against a whitelist (letters, digits and `. _ ~ ^ * - @ /`) and runs `npx -y @kenwea/mcp@0.8.0 check <name> --json`; <!-- claim:spec-whitelist #9f977b08 -->
 - the notary receives only package names, never the command, your files or your environment (npx itself fetches `@kenwea/mcp` from the npm registry the first time, into npm's usual cache); <!-- claim:names-only #6c4057be -->
 - the hook writes no file of its own and changes no setting; all it can do is add a note or ask you before the install runs. <!-- claim:writes-nothing #c5b263db -->
 
@@ -54,7 +54,8 @@ Claude shows that warning for every plugin with a command hook, and this one has
 | the record did not verify (bad or revoked signature, not about these bytes) | you are asked <!-- claim:ask-unverified #adea6df0 --> |
 | the package runs something at install and touched nothing we watch | the install runs, with a one-line note <!-- claim:note-quiet #2f186ff0 --> |
 | a step failed or hit the check's time limit, or the check could not see what runs | the install runs, with a note that the result is inconclusive and why; that is not a pass <!-- claim:note-inconclusive #cfc57ec7 --> |
-| nothing of the package's own runs at install | nothing is said <!-- claim:silent-nothing-runs #18399588 --> |
+| nothing of the package's own runs at install | nothing is said, unless the record has something to look at (next row) <!-- claim:silent-nothing-runs #96413f02 --> |
+| the record verified, and its signed fields show a load that failed for a reason the record does not explain, a step that looked for a program and did not find it, a trace that was cut, or a dependency tree that was not complete | added to the package's line, a question included, as how many things there are to look at and what they are, or said on a line of its own when there would otherwise be nothing to say; a load that failed because the entry is a stylesheet or the code expects a browser is not counted <!-- claim:note-odd #6fb1acaa --> |
 | the notary could not be reached, or the hourly limit was hit | the install runs, with a note that there is no Kenwea record yet and why <!-- claim:note-unreachable #74a3ad5f --> |
 | Kenwea's published key list could not be read, so the record could not be checked | the install runs, with that note; nothing was found wrong with the record <!-- claim:note-keys-unreadable #17728457 --> |
 

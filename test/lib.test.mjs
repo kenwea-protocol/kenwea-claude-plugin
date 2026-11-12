@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { decide, parseInstalls, registrySpec, changedBehavior, guardMode } from "../scripts/lib.mjs";
+import { decide, parseInstalls, registrySpec, changedBehavior, guardMode, oddFields } from "../scripts/lib.mjs";
 
 const specs = (cmd) => parseInstalls(cmd).flatMap((i) => i.specs);
 
@@ -222,4 +222,49 @@ test("changedBehavior: credentials come first and the clause names the earlier r
   );
   assert.equal(changedBehavior({ known: true, worse: false, previous: "1.0.0", newlyReached: ["a.example"] }), "");
   assert.equal(changedBehavior(null), "");
+});
+
+// 1.8.0: what the signed record knows that its level does not say.
+const signed = (payload, over = {}) => rec({ ...payload, ...over, signedAttestation: { payload: JSON.stringify(payload) } });
+const quietObs = { dns: [], missing: [], network: [], programs: ["node"], truncated: false };
+
+// claim: note-odd
+test("a quiet record whose import failed and whose step missed a program says so (nx 24.0.5)", () => {
+  const p = { verdict: "approved", reasonCode: "ran_ok", installSteps: ["postinstall"], observed: { ...quietObs, missing: ["git"] },
+    phases: [{ name: "installSteps", status: "completed" }, { name: "load", status: "failed", cause: "it exited 1; many libraries need configuration" }],
+    load: { ran: true, exitCode: 1, observed: { ...quietObs, missing: ["git"] } } };
+  const d = decide([{ spec: "nx@24.0.5", code: 0, result: signed(p) }]);
+  assert.equal(d.decision, "allow");
+  assert.match(d.note, /nx@24\.0\.5: runs postinstall at install; it finished and touched nothing we watch .*; the record also has 2 things to look at: load failed \(it exited 1\); a step looked for git and did not find it/);
+});
+
+test("a package that runs nothing, with a failed import of unknown cause, is no longer silent", () => {
+  const p = { verdict: "manual_review", reasonCode: "no_install_steps", installSteps: [],
+    phases: [{ name: "installSteps", status: "skipped", cause: "it declares no install step" }, { name: "load", status: "failed", cause: "it exited 1; Node said: boom" }] };
+  const d = decide([{ spec: "x@1.0.0", code: 0, result: signed(p) }]);
+  assert.equal(d.decision, "allow");
+  assert.match(d.note, /x@1\.0\.0: nothing of its own runs at install, but the record also has one thing to look at: load failed \(it exited 1\)/);
+});
+
+// claim: silent-nothing-runs, note-odd
+test("a stylesheet package stays silent: its failed load is explained, not odd", () => {
+  const p = { verdict: "manual_review", reasonCode: "no_install_steps", installSteps: [],
+    phases: [{ name: "load", status: "failed", cause: "it exited 1 because its entry is a .css file, which Node does not import" }] };
+  assert.equal(decide([{ spec: "@fontsource/amiri", code: 0, result: signed(p) }]).decision, "silent");
+});
+
+test("the odd list is read from the signed payload, not the unsigned copy beside it", () => {
+  const p = { verdict: "approved", reasonCode: "ran_ok", installSteps: ["postinstall"], observed: quietObs, phases: [{ name: "load", status: "completed" }] };
+  const r = signed(p, { phases: [{ name: "load", status: "failed", cause: "unsigned and untrue" }] });
+  assert.doesNotMatch(decide([{ spec: "y", code: 0, result: r }]).note, /look at/);
+  assert.deepEqual(oddFields(null), []);
+});
+
+// claim: note-odd
+test("a question about the network carries the odd list too", () => {
+  const p = { verdict: "manual_review", reasonCode: "ran_tried_network", installSteps: ["postinstall"], observed: { ...quietObs, dns: ["example.org"], truncated: true },
+    phases: [{ name: "installSteps", status: "completed" }] };
+  const d = decide([{ spec: "z@1.0.0", code: 0, result: signed(p) }]);
+  assert.equal(d.decision, "ask");
+  assert.match(d.reason, /z@1\.0\.0: its install step tried to reach the network \(example\.org\); the record also has one thing to look at: the trace was cut, so it may be incomplete/);
 });

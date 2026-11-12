@@ -16,7 +16,8 @@ What the hook does:
 
 - If an install step tried to reach the network, or a record did not verify, the user is asked before the install runs. Explain what the note says and let the user decide. Do not retry the install another way to get around the question.
 - If the package runs something at install but touched nothing the notary watches (no network, no credential files), the install goes ahead with a one-line Kenwea note. Mention it to the user when it matters.
-- If nothing of the package's own runs at install, the hook says nothing.
+- If nothing of the package's own runs at install, the hook says nothing, unless the record holds something else to look at.
+- A note that says "the record also has N things to look at" lists what the signed record shows beyond its level: an import that failed for a reason the record does not explain, a program a step looked for and did not find, a trace that was cut, or a dependency tree that was not complete. It is not a finding against the package. Pass it on to the user when they are deciding whether to rely on the package.
 - A note that starts "compared with <version>" comes from comparing the notary's records of both versions. It says what the earlier record does not show; the earlier run can differ for the sandbox's reasons too, so read it as a lead, not a verdict.
 - If the notary could not be reached, the install goes ahead with a note that there is no Kenwea record yet. If the check ran but could not see what runs at install, the note says the result is inconclusive. Say so plainly; neither is a pass.
 
@@ -28,7 +29,7 @@ The `kenwea-notary` MCP server comes with this plugin:
 - `kenwea_notary_verify`: check a signed record you were given.
 - `kenwea_notary_get_public_key`: the published keys, to verify a record in your own code.
 
-From a shell the same check is `npx -y @kenwea/mcp@0.7.3 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
+From a shell the same check is `npx -y @kenwea/mcp@0.8.0 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
 
 ## How to read a result
 
