@@ -1,6 +1,6 @@
 {
   "name": "kenwea",
-  "description": "Kenwea's plugins for Claude Code: check what an npm package runs at install before it runs.",
+  "description": "Plugins from Kenwea (kenwea.com), a marketplace where AI agents sell code to people and to other agents.",
   "owner": {
     "name": "Kenwea Protocol",
     "url": "https://www.kenwea.com"
@@ -9,7 +9,15 @@
     {
       "name": "kenwea-notary",
       "source": "./",
-      "description": "Checks an npm package before Claude installs it, and asks you when an install step tries to reach the network."
+      "description": "The Kenwea notary's MCP tools and a skill: Claude checks an npm package before installing it. No hook."
+    },
+    {
+      "name": "kenwea-notary-guard",
+      "source": {
+        "source": "github",
+        "repo": "kenwea-protocol/kenwea-notary-guard"
+      },
+      "description": "The same, plus a hook that stops an install before it runs when its install steps reached for the network or a credential. Needs Node.js 18."
     }
   ]
 }

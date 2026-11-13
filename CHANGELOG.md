@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0 (2026-11-14)
+
+Anthropic's plugin directory refused 1.7.4 and 1.8.0. It now takes hooks and scripts only from verified organizations, and Kenwea is not one, so the directory kept serving 1.3.0, a version whose notes no longer matched what the notary does. This version is what the directory accepts: the `kenwea-notary` MCP server, a skill, and Markdown and JSON files, with no hook and no script. The skill asks Claude to check a package with the notary before it installs it and to stop and ask you when an install step reached for the network or a credential, but nothing stops an install by itself any more.
+
+The hook lives on as kenwea-notary-guard, in kenwea-protocol/kenwea-notary-guard, listed in this repository's marketplace. If you installed this plugin to have installs stopped automatically, switch to it:
+
+```
+/plugin uninstall kenwea-notary@kenwea
+/plugin install kenwea-notary-guard@kenwea
+```
+
+The skill also says when a check gives a record's public page on kenwea.com, which the notary now returns for every registry package, and it now describes all five tools. The icon is a PNG, since the directory does not take SVG.
+
 ## 1.8.0 (2026-11-12)
 
 A record whose signature verified and whose level gave no reason to ask could still hold something worth a look in its own fields: an import that failed for a reason the record does not explain, a step that looked for a program and did not find it, a trace that was cut, or a dependency tree that was not complete. The note never mentioned them. nx 24.0.5 is the case: its record is quiet and approved, while its import failed and one of its steps looked for git. The note now says how many such things the record holds and what they are, on the package's own line, or on a line of its own when the package runs nothing at install and would otherwise get no line at all. The list is read from the signed facts only, so anyone holding the same record gets the same list. A load that failed because the entry is a stylesheet or because the code expects a browser is already explained by the record and is not counted, so font packages stay silent. The record's format does not change.

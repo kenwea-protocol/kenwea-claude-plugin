@@ -1,47 +1,47 @@
 ---
 name: kenwea
 description: >-
-  Read and explain Kenwea notary results about npm packages, and check a package or
-  file before installing or running it. Use when a Kenwea note or question appears
-  before an install, when the user asks whether a package is safe to install or what
-  it runs at install time, or mentions install scripts, postinstall, supply chain
-  attacks or Kenwea.
+  Check an npm package with the Kenwea notary before installing it, and explain
+  what a Kenwea record says. Use before running npm install, pnpm add, yarn add
+  or bun add with package names, when the user asks whether a package is safe to
+  install or what it runs at install time, or mentions install scripts,
+  postinstall, supply chain attacks or Kenwea.
 ---
 
 # Kenwea notary
 
-This plugin checks npm packages before you install them. When you are about to run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, a hook asks the Kenwea notary first. The notary fetches the exact bytes npm would install, runs the install steps npm would run in a container with no network, no capabilities, a read-only filesystem and no root, traces what each step attempts, and returns a record signed with Kenwea's published Ed25519 key. The record is verified on this machine before anything is said about it.
+The `kenwea-notary` MCP server that comes with this plugin asks the Kenwea notary what a package does when it is installed. The notary fetches the exact bytes npm would install, installs the package with its dependency tree in a container with no route out, no capabilities, a read-only filesystem and no root, with decoy credentials where a developer machine keeps real ones, and traces what each install step attempts. It returns a record signed with Kenwea's published Ed25519 key.
 
-What the hook does:
+## Before an install
 
-- If an install step tried to reach the network, or a record did not verify, the user is asked before the install runs. Explain what the note says and let the user decide. Do not retry the install another way to get around the question.
-- If the package runs something at install but touched nothing the notary watches (no network, no credential files), the install goes ahead with a one-line Kenwea note. Mention it to the user when it matters.
-- If nothing of the package's own runs at install, the hook says nothing, unless the record holds something else to look at.
-- A note that says "the record also has N things to look at" lists what the signed record shows beyond its level: an import that failed for a reason the record does not explain, a program a step looked for and did not find, a trace that was cut, or a dependency tree that was not complete. It is not a finding against the package. Pass it on to the user when they are deciding whether to rely on the package.
-- A note that starts "compared with <version>" comes from comparing the notary's records of both versions. It says what the earlier record does not show; the earlier run can differ for the sandbox's reasons too, so read it as a lead, not a verdict.
-- If the notary could not be reached, the install goes ahead with a note that there is no Kenwea record yet. If the check ran but could not see what runs at install, the note says the result is inconclusive. Say so plainly; neither is a pass.
+Before you run `npm install`, `pnpm add`, `yarn add` or `bun add` with package names, call `kenwea_notary_check` with `package` set to each name (at most five, with the version when the user gave one). Skip it for a bare install from a lockfile, local paths, git or URL specs, and installs with `--ignore-scripts`, since nothing of a named package runs there. Then:
 
-## Checking something yourself
+- If the level is `network`, `reads_credentials` or `sends_credentials`, stop and tell the user what the record says the install step did, before installing. Let the user decide. Do not install it another way to get around the question.
+- If the level is `quiet`, say in one line that it runs something at install and touched nothing the notary watches, and go ahead.
+- If the level is `nothing_runs`, go ahead without comment.
+- If the level is `unfinished`, or the check could not be made (rate limit, no answer), say so plainly and go ahead unless the user wants to wait. Neither is a pass.
 
-The `kenwea-notary` MCP server comes with this plugin:
+This plugin has no hook, so nothing stops an install by itself; the check happens because you make it. A user who wants installs stopped automatically can install the Kenwea notary guard instead (see the README).
 
-- `kenwea_notary_check`: pass `package` (an npm name, optionally with a version or tag, such as `express@4.18.2`) or `artifactRef` (an https URL to a single .js, .mjs, .cjs or .py file, an npm tarball, or a Python wheel or zip).
+When the answer has `record.recordUrl`, end what you say about that package with the link. It is the record's public page on kenwea.com, which the user can read or show to someone.
+
+## The tools
+
+- `kenwea_notary_check`: pass `package` (an npm name, optionally with a version or tag, such as `express@4.18.2`; `pypi:requests` for a Python package) or `artifactRef` (an https URL to a single .js, .mjs, .cjs or .py file, an npm tarball, or a Python wheel).
+- `kenwea_notary_check_tree`: pass a lockfile's text to get an answer for the whole dependency tree.
+- `kenwea_notary_check_tools`: read an MCP server's tool definitions for instructions hidden from the user, before connecting it.
 - `kenwea_notary_verify`: check a signed record you were given.
 - `kenwea_notary_get_public_key`: the published keys, to verify a record in your own code.
 
-From a shell the same check is `npx -y @kenwea/mcp@0.8.0 check <package>`; add `--fail-on install-scripts,network` to make it fail when the package runs anything at install or tries the network.
-
 ## How to read a result
 
+- `level` is one word for what the record means, and `summary` says it in a sentence.
 - `installSteps` is what runs when the package is installed. Empty means nothing of its own runs at install.
-- `observed` is what those steps attempted: network addresses, DNS names and the programs they started, and `requests`, what a step sent to the stand-in network inside the sandbox (plain HTTP in full; HTTPS in full when the step accepted the stand-in's certificate authority, which the record marks "read inside TLS", and otherwise by server name and size). Nothing left the sandbox.
-- `approved` (`ran_ok`): every install step ran to completion and none tried to reach the network. Not an endorsement, and not a statement that the code is good; a script written to notice it is being watched can stay quiet.
-- `manual_review` with `ran_tried_network`: a step tried to reach the network. Tell the user what it reached.
-- `manual_review` with `install_step_failed`: a step ran and failed. There is no route out and no native build tools, so it can fail for our reason, for example a step that downloads a binary; it is evidence neither way.
-- `manual_review` with `no_install_steps`: nothing of the package's own runs at install.
-- `manual_review` with `step_timed_out`, `runner_busy` or `not_run`: Kenwea's own limit stopped or skipped the run; nothing is concluded about the package.
-- `rejected`: only for a single file that ran and failed, or a file carrying a provider-formatted credential.
+- `observed` is what those steps attempted: network addresses, DNS names, the programs they started, credential files they opened, and `requests`, what a step sent to the stand-in network inside the sandbox. Nothing left the sandbox.
+- `quiet` (verdict `approved`) means every install step ran to completion and none reached the network or a credential. It is not an endorsement; a script written to notice it is being watched can stay quiet.
+- `unfinished` with `install_step_failed`: a step ran and failed. There is no route out and no native build tools, so it can fail for our reason, for example a step that downloads a binary.
+- `step_timed_out`, `runner_busy` or `not_run`: Kenwea's own limit stopped or skipped the run; nothing is concluded about the package.
 
-Limits to mention when they matter: the check runs the package on its own, not inside your dependency tree, and some packages behave differently as a dependency (@scarf/scarf sends telemetry only then). Code that runs only when your app calls it is not exercised. Without a key the notary allows 20 checks an hour per network address.
+Limits to mention when they matter: the package is installed on its own, not inside the user's project, and some packages behave differently under one particular parent (@scarf/scarf sends telemetry only then); `kenwea_notary_check_tree` covers that case for a lockfile. A tree larger than 400 packages goes in only in the part nearest the package, and `dependencies.partial` says so. Code that runs only when the app calls it is not exercised. Without a key the notary allows 20 checks an hour per network address.
 
 Records can be checked independently at https://www.kenwea.com/verify.
